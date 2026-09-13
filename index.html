@@ -1,0 +1,3938 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>詳細ライフプラン＆キャッシュフローシミュレーター</title>
+  <!-- Chart.js CDN (オフライン時は自動でSVG簡易グラフへフォールバック) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --primary-light: #eff6ff;
+      --primary-border: #bfdbfe;
+      --success: #16a34a;
+      --success-light: #f0fdf4;
+      --success-border: #bbf7d0;
+      --danger: #dc2626;
+      --danger-light: #fef2f2;
+      --danger-border: #fecaca;
+      --warning: #d97706;
+      --warning-light: #fffbeb;
+      --warning-border: #fde68a;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --radius: 12px;
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+      --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.06);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.04);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      line-height: 1.5;
+      padding: 24px 16px;
+    }
+
+    .container {
+      max-width: 1440px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    header {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .header-title h1 {
+      font-size: 1.65rem;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .header-title p {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .preset-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .preset-label {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-right: 4px;
+    }
+
+    .preset-btn {
+      background: #fff;
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 7px 14px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .preset-btn:hover {
+      background: var(--primary-light);
+      border-color: var(--primary-border);
+      color: var(--primary);
+    }
+
+    .preset-btn.active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+      box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25);
+    }
+
+    .storage-controls {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: 8px;
+      padding-left: 12px;
+      border-left: 1px solid var(--border);
+    }
+
+    .storage-status-pill {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #15803d;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      padding: 5px 11px;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.25s ease;
+      user-select: none;
+    }
+
+    .storage-status-pill.saving {
+      color: #b45309;
+      background: #fffbeb;
+      border-color: #fde68a;
+    }
+
+    .storage-status-pill.error {
+      color: #b91c1c;
+      background: #fef2f2;
+      border-color: #fecaca;
+    }
+
+    .preset-btn.reset-btn {
+      color: var(--text-muted);
+      background: #f8fafc;
+      border-color: var(--border);
+    }
+
+    .preset-btn.reset-btn:hover {
+      color: #dc2626;
+      border-color: #fca5a5;
+      background: #fef2f2;
+    }
+
+    /* KPI Summary Cards */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .kpi-card {
+      background: var(--card-bg);
+      padding: 18px 20px;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      border: 1px solid var(--border);
+      border-left: 5px solid var(--primary);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .kpi-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow);
+    }
+
+    .kpi-card.success { border-left-color: var(--success); }
+    .kpi-card.danger { border-left-color: var(--danger); }
+    .kpi-card.warning { border-left-color: var(--warning); }
+
+    .kpi-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .kpi-label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-weight: 700;
+    }
+
+    .kpi-badge {
+      font-size: 0.72rem;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      font-weight: 600;
+      background: #f1f5f9;
+      color: var(--text-muted);
+    }
+
+    .kpi-value {
+      font-size: 1.75rem;
+      font-weight: 800;
+      color: #0f172a;
+      margin: 6px 0 2px 0;
+      letter-spacing: -0.02em;
+    }
+
+    .kpi-sub {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    /* Alert Banner */
+    .alert-banner {
+      padding: 14px 18px;
+      border-radius: var(--radius);
+      margin-bottom: 24px;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .alert-danger {
+      background: var(--danger-light);
+      border: 1px solid var(--danger-border);
+      color: #991b1b;
+    }
+
+    .alert-success {
+      background: var(--success-light);
+      border: 1px solid var(--success-border);
+      color: #14532d;
+    }
+
+    /* Main Grid Layout */
+    .main-layout {
+      display: grid;
+      grid-template-columns: 480px 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    @media (max-width: 1180px) {
+      .main-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Inputs Panel */
+    .inputs-panel {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      position: sticky;
+      top: 16px;
+    }
+
+    .tabs-nav {
+      display: flex;
+      overflow-x: auto;
+      background: #f8fafc;
+      border-bottom: 1px solid var(--border);
+      scrollbar-width: thin;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 13px 12px;
+      border: none;
+      background: none;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      cursor: pointer;
+      white-space: nowrap;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s;
+      text-align: center;
+    }
+
+    .tab-btn:hover {
+      color: var(--primary);
+      background: #f1f5f9;
+    }
+
+    .tab-btn.active {
+      color: var(--primary);
+      background: #fff;
+      border-bottom-color: var(--primary);
+    }
+
+    .tab-content {
+      padding: 22px;
+      display: none;
+      max-height: 740px;
+      overflow-y: auto;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .section-title {
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: #0f172a;
+      margin: 20px 0 14px 0;
+      padding-bottom: 6px;
+      border-bottom: 2px solid #f1f5f9;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .section-title:first-child {
+      margin-top: 0;
+    }
+
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #334155;
+      margin-bottom: 5px;
+    }
+
+    .input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    input[type="number"], select, input[type="text"] {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.88rem;
+      color: var(--text-main);
+      background: #fff;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    input[type="number"]:focus, select:focus, input[type="text"]:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
+
+    .unit-suffix {
+      position: absolute;
+      right: 12px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      pointer-events: none;
+      font-weight: 600;
+    }
+
+    input.has-suffix {
+      padding-right: 50px;
+    }
+
+    .checkbox-card {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.2s;
+    }
+
+    .checkbox-card:hover {
+      background: #f1f5f9;
+    }
+
+    .checkbox-card input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+
+    .checkbox-card label {
+      margin-bottom: 0;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #1e293b;
+    }
+
+    .help-text {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+
+    /* Dynamic Items (Children, Events) */
+    .item-card {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+
+    .event-row {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr 34px;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .spot-row {
+      display: grid;
+      grid-template-columns: 1fr 1.2fr 1.6fr 34px;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .del-btn {
+      background: #fee2e2;
+      color: var(--danger);
+      border: 1px solid #fca5a5;
+      border-radius: 6px;
+      width: 32px;
+      height: 34px;
+      cursor: pointer;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+
+    .del-btn:hover {
+      background: #fecaca;
+    }
+
+    .add-btn {
+      background: var(--primary-light);
+      color: var(--primary);
+      border: 1px dashed var(--primary-border);
+      border-radius: 8px;
+      padding: 10px;
+      width: 100%;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 700;
+      transition: all 0.2s;
+    }
+
+    .add-btn:hover {
+      background: #dbeafe;
+      border-color: var(--primary);
+    }
+
+    /* Output Panel */
+    .outputs-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+      padding: 22px;
+    }
+
+    .chart-container {
+      position: relative;
+      height: 380px;
+      width: 100%;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .card-title {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: #0f172a;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-subtitle {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .btn-action {
+      background: #fff;
+      border: 1px solid var(--border);
+      padding: 7px 14px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+      color: #334155;
+    }
+
+    .btn-action:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+      background: var(--primary-light);
+    }
+
+    /* Table styles */
+    .table-wrapper {
+      max-height: 520px;
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.03);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+      text-align: right;
+    }
+
+    th, td {
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    th {
+      background: #f8fafc;
+      position: sticky;
+      top: 0;
+      font-weight: 700;
+      color: #334155;
+      z-index: 10;
+      border-bottom: 2px solid var(--border);
+    }
+
+    th.text-left, td.text-left { text-align: left; }
+    th.text-center, td.text-center { text-align: center; }
+
+    tr:hover { background: #f8fafc; }
+    tr.deficit td { background-color: #fffaf0; }
+    tr.bankruptcy td { background-color: #fef2f2; font-weight: 700; }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 7px;
+      font-size: 0.72rem;
+      border-radius: 4px;
+      font-weight: 700;
+    }
+
+    .badge-event {
+      background: #e0f2fe;
+      color: #0369a1;
+      margin-right: 4px;
+    }
+
+    .badge-alert {
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+
+    .view-filter {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Collapsible Details */
+    details {
+      margin-top: 14px;
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.82rem;
+    }
+
+    summary {
+      cursor: pointer;
+      font-weight: 700;
+      color: #334155;
+    }
+
+    details p {
+      margin-top: 8px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Header -->
+  <header>
+    <div class="header-title">
+      <h1>📊 ライフプラン・詳細キャッシュフローシミュレーター</h1>
+      <p>キャリア・住居・教育・投資・年金・インフレを網羅した高精度生涯収支シミュレーション</p>
+    </div>
+    <div class="preset-container">
+      <span class="preset-label">シナリオ切替:</span>
+      <button class="preset-btn active" id="btn-preset-single" onclick="selectPreset('single')">独身キャリア (28歳)</button>
+      <button class="preset-btn" id="btn-preset-dinks" onclick="selectPreset('dinks')">共働きDINKS (30歳)</button>
+      <button class="preset-btn" id="btn-preset-family" onclick="selectPreset('family')">ファミリー (子ども2人・持家)</button>
+      <div class="storage-controls">
+        <span id="storage-status-indicator" class="storage-status-pill" title="入力値はブラウザのLocalStorageに自動保存されます">
+          💾 <span id="storage-status-text">自動保存: 有効</span>
+        </span>
+        <button type="button" class="preset-btn reset-btn" id="btn-reset-storage" onclick="resetToInitialPreset()" title="ブラウザに保存された入力を削除して初期設定に戻します">
+          🔄 保存データ初期化
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- KPI Summary Banner -->
+  <div class="kpi-grid">
+    <div class="kpi-card" id="kpi-final-card">
+      <div class="kpi-header">
+        <span class="kpi-label">最終資産残高</span>
+        <span class="kpi-badge" id="kpi-final-age">95歳時点</span>
+      </div>
+      <div class="kpi-value" id="kpi-final-assets">-- 万円</div>
+      <div class="kpi-sub" id="kpi-final-sub">シミュレーション終了時</div>
+    </div>
+    <div class="kpi-card" id="kpi-peak-card">
+      <div class="kpi-header">
+        <span class="kpi-label">ピーク時純資産</span>
+        <span class="kpi-badge" id="kpi-peak-age">--歳到達時</span>
+      </div>
+      <div class="kpi-value" id="kpi-peak-assets">-- 万円</div>
+      <div class="kpi-sub" id="kpi-peak-sub">生涯で最大の蓄積額</div>
+    </div>
+    <div class="kpi-card" id="kpi-retire-card">
+      <div class="kpi-header">
+        <span class="kpi-label">定年退職時資産</span>
+        <span class="kpi-badge" id="kpi-retire-age">60歳時点</span>
+      </div>
+      <div class="kpi-value" id="kpi-retire-assets">-- 万円</div>
+      <div class="kpi-sub" id="kpi-retire-sub">退職金加算後の保有金融資産</div>
+    </div>
+    <div class="kpi-card" id="kpi-status-card">
+      <div class="kpi-header">
+        <span class="kpi-label">資金ショート判定</span>
+        <span class="kpi-badge" id="kpi-status-badge">安定</span>
+      </div>
+      <div class="kpi-value" id="kpi-status">安全</div>
+      <div class="kpi-sub" id="kpi-status-sub">生涯にわたり資産枯渇なし</div>
+    </div>
+  </div>
+
+  <div id="alert-container"></div>
+
+  <!-- Main Grid Layout -->
+  <div class="main-layout">
+    <!-- Left: Inputs Config Panel -->
+    <div class="inputs-panel">
+      <div class="tabs-nav">
+        <button class="tab-btn active" onclick="switchTab('basic', this)">基本・キャリア</button>
+        <button class="tab-btn" onclick="switchTab('living', this)">生活・住居</button>
+        <button class="tab-btn" onclick="switchTab('family', this)">家族・教育</button>
+        <button class="tab-btn" onclick="switchTab('invest', this)">資産運用・年金</button>
+        <button class="tab-btn" onclick="switchTab('events', this)">特大イベント</button>
+      </div>
+
+      <!-- Tab 1: 基本・キャリア -->
+      <div class="tab-content active" id="tab-basic">
+        <div class="section-title">本人基本プロファイル</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>現在の年齢</label>
+            <div class="input-wrapper">
+              <input type="number" id="base_age" value="28" min="18" max="90" oninput="calculate()">
+              <span class="unit-suffix">歳</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>シミュレーション終了年齢</label>
+            <div class="input-wrapper">
+              <input type="number" id="base_end_age" value="95" min="50" max="110" oninput="calculate()">
+              <span class="unit-suffix">歳</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-title">本人の給与・昇給プラン</div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label>給与の入力方式</label>
+          <select id="income_self_calc_mode" onchange="toggleIncomeCalcMode(); calculate();">
+            <option value="gross" selected>額面年収から税・社保を自動計算（推奨）</option>
+            <option value="net">手取り年収を直接入力</option>
+          </select>
+          <p class="help-text">「額面」を選択すると、所得税・住民税・社会保険料を現行税制・料率に沿って自動概算し、リアルタイムに手取り額を算出します。</p>
+        </div>
+
+        <!-- 額面年収入力グループ -->
+        <div id="self_gross_inputs">
+          <div class="form-row">
+            <div class="form-group">
+              <label>現在の額面年収</label>
+              <div class="input-wrapper">
+                <input type="number" id="income_self_gross_annual" value="580" min="0" step="10" oninput="calculate()">
+                <span class="unit-suffix">万円</span>
+              </div>
+              <p class="help-text">賞与・手当を含めた年間総支給額</p>
+            </div>
+            <div class="form-group">
+              <label>最高年収 (ピーク時額面)</label>
+              <div class="input-wrapper">
+                <input type="number" id="income_self_gross_peak_amount" value="950" min="0" step="10" oninput="calculate()">
+                <span class="unit-suffix">万円</span>
+              </div>
+              <p class="help-text">最高年収時の年間総支給額</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 手取り年収直接入力グループ -->
+        <div id="self_net_inputs" style="display:none;">
+          <div class="form-row">
+            <div class="form-group">
+              <label>現在の手取り年収</label>
+              <div class="input-wrapper">
+                <input type="number" id="income_self_annual" value="450" min="0" step="10" oninput="calculate()">
+                <span class="unit-suffix">万円</span>
+              </div>
+              <p class="help-text">税・社保控除後の年間手取り合計</p>
+            </div>
+            <div class="form-group">
+              <label>最高年収 (ピーク時手取り)</label>
+              <div class="input-wrapper">
+                <input type="number" id="income_self_peak_amount" value="700" min="0" step="10" oninput="calculate()">
+                <span class="unit-suffix">万円</span>
+              </div>
+              <p class="help-text">最高年収時の年間手取り額</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>最高年収時の年齢</label>
+            <div class="input-wrapper">
+              <input type="number" id="income_self_peak_age" value="50" min="18" max="80" oninput="calculate()">
+              <span class="unit-suffix">歳</span>
+            </div>
+            <p class="help-text">年収の伸びがピークに達する年齢</p>
+          </div>
+          <div class="form-group">
+            <label>ボーナス割合 (賞与比率)</label>
+            <div class="input-wrapper">
+              <input type="number" id="income_self_bonus_ratio" value="20" min="0" max="60" step="5" oninput="calculate()">
+              <span class="unit-suffix">%</span>
+            </div>
+            <p class="help-text">年収のうち賞与が占める割合</p>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>定年退職年齢</label>
+            <div class="input-wrapper">
+              <input type="number" id="retire_self_age" value="60" min="50" max="75" oninput="calculate()">
+              <span class="unit-suffix">歳</span>
+            </div>
+            <p class="help-text">定年まで最高年収が維持されます</p>
+          </div>
+          <div class="form-group">
+            <label>見込み退職金 (手取り)</label>
+            <div class="input-wrapper">
+              <input type="number" id="retire_self_bonus" value="1500" min="0" step="50" oninput="calculate()">
+              <span class="unit-suffix">万円</span>
+            </div>
+          </div>
+        </div>
+        <div style="background:#f8fafc; border:1px solid var(--border); border-left:4px solid var(--primary); border-radius:8px; padding:10px 14px; margin-bottom:14px;">
+          <div style="font-size:0.82rem; font-weight:700; color:var(--primary); margin-bottom:2px;">📊 給与推移＆手取り内訳プレビュー</div>
+          <div id="self_income_preview" style="font-size:0.8rem; color:var(--text-main); line-height:1.5;"></div>
+        </div>
+
+        <div class="checkbox-card">
+          <input type="checkbox" id="rehire_self_enabled" checked onchange="toggleSelfRehire(); calculate();">
+          <label for="rehire_self_enabled">定年後の継続雇用・シニア勤務を行う</label>
+        </div>
+        <div class="form-row" id="self_rehire_fields">
+          <div class="form-group">
+            <label>再雇用終了年齢</label>
+            <div class="input-wrapper">
+              <input type="number" id="rehire_self_end_age" value="65" min="55" max="80" oninput="calculate()">
+              <span class="unit-suffix">歳まで</span>
+            </div>
+          </div>
+          <div class="form-group" id="self_rehire_gross_group">
+            <label>再雇用時額面年収</label>
+            <div class="input-wrapper">
+              <input type="number" id="rehire_self_gross_income" value="330" min="0" step="10" oninput="calculate()">
+              <span class="unit-suffix">万円</span>
+            </div>
+            <p class="help-text">年間総支給額（税・社保自動控除）</p>
+          </div>
+          <div class="form-group" id="self_rehire_net_group" style="display:none;">
+            <label>再雇用時手取り年収</label>
+            <div class="input-wrapper">
+              <input type="number" id="rehire_self_income" value="260" min="0" step="10" oninput="calculate()">
+              <span class="unit-suffix">万円</span>
+            </div>
+            <p class="help-text">税・社保控除後の年間手取り</p>
+          </div>
+        </div>
+
+        <div class="section-title">税金・各種控除プラン</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>ふるさと納税 (年間寄附額)</label>
+            <div class="input-wrapper">
+              <input type="number" id="deduction_furusato_amount" value="5" min="0" max="100" step="1" oninput="calculate()">
+              <span class="unit-suffix">万円/年</span>
+            </div>
+            <p class="help-text">自己負担2,000円を除き所得税・住民税から減税</p>
+          </div>
+          <div class="form-group">
+            <label>iDeCo / 企業型DC掛金</label>
+            <div class="input-wrapper">
+              <input type="number" id="deduction_ideco_monthly" value="0" min="0" max="6.8" step="0.5" oninput="calculate()">
+              <span class="unit-suffix">万円/月</span>
+            </div>
+            <p class="help-text">小規模企業共済等掛金控除（全額所得控除）</p>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>生命保険料控除 (年間申告額)</label>
+            <div class="input-wrapper">
+              <input type="number" id="deduction_life_insurance" value="0" min="0" max="12" step="1" oninput="calculate()">
+              <span class="unit-suffix">万円/年</span>
+            </div>
+            <p class="help-text">一般/介護/年金保険料の年間控除（所得税最大12万）</p>
+          </div>
+          <div class="form-group">
+            <label>配偶者控除・扶養控除の適用</label>
+            <div style="font-size:0.77rem; color:#475569; background:#f8fafc; border:1px solid var(--border); padding:8px 10px; border-radius:6px; margin-top:4px; line-height:1.4;">
+              💡 「家族・教育」タブの<strong>配偶者年収</strong>および<strong>子どもの年齢</strong>（16〜18歳: 38万、19〜22歳特定扶養: 63万）から<strong>自動判定・適用</strong>されます。
+            </div>
+          </div>
+        </div>
+
+        <div class="section-title">物価上昇率 (インフレ)</div>
+        <div class="form-group">
+          <label>年間インフレ率</label>
+          <div class="input-wrapper">
+            <input type="number" id="inflation_rate" value="1.0" min="0" max="5" step="0.1" oninput="calculate()">
+            <span class="unit-suffix">%/年</span>
+          </div>
+          <p class="help-text">生活費・家賃・教育費・車両維持費が毎年複利で上昇します（年利0%なら名目値固定）。</p>
+        </div>
+      </div>
+
+      <!-- Tab 2: 生活・住居 -->
+      <div class="tab-content" id="tab-living">
+        <div class="section-title">基本生活費 (住居・教育除く)</div>
+        <div class="form-group">
+          <label>現在の基本生活費 (月額)</label>
+          <div class="input-wrapper">
+            <input type="number" id="expense_living_monthly" value="18" min="5" max="100" step="1" oninput="calculate()">
+            <span class="unit-suffix">万円/月</span>
+          </div>
+          <p class="help-text">食費、水道光熱、通信、日用品、交際・娯楽費等（年間：<span id="living_annual_preview" style="font-weight:700;">216</span>万円）</p>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>老後生活費割合 (現役比)</label>
+            <div class="input-wrapper">
+              <input type="number" id="expense_living_retire_ratio" value="75" min="40" max="120" step="5" oninput="calculate()">
+              <span class="unit-suffix">%</span>
+            </div>
+            <p class="help-text">定年後の縮小目安（通常70〜80%）</p>
+          </div>
+          <div class="form-group">
+            <label>結婚後の生活費増加率</label>
+            <div class="input-wrapper">
+              <input type="number" id="expense_married_ratio" value="150" min="100" max="250" step="10" oninput="calculate()">
+              <span class="unit-suffix">%</span>
+            </div>
+            <p class="help-text">2人暮らしへの移行係数</p>
+          </div>
+        </div>
+
+        <div class="section-title">住居プラン</div>
+        <div class="form-group">
+          <label>住居形態の選択</label>
+          <select id="housing_type" onchange="toggleHousingFields(); calculate();">
+            <option value="rent">生涯賃貸</option>
+            <option value="buy">住宅購入（新規購入または既保有ローン）</option>
+          </select>
+        </div>
+
+        <!-- 賃貸情報 (常に購入前の家賃としても利用) -->
+        <div id="housing_rent_fields">
+          <div class="form-row">
+            <div class="form-group">
+              <label><span id="rent_label_title">家賃月額</span> (共益費込)</label>
+              <div class="input-wrapper">
+                <input type="number" id="rent_monthly" value="10" min="2" max="100" step="0.5" oninput="calculate()">
+                <span class="unit-suffix">万円/月</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>更新料等 (年換算)</label>
+              <div class="input-wrapper">
+                <input type="number" id="rent_update_annual" value="5" min="0" max="50" step="1" oninput="calculate()">
+                <span class="unit-suffix">万円/年</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 持ち家情報 -->
+        <div id="housing_buy_fields" style="display:none; background:#f8fafc; border:1px solid var(--border); border-radius:8px; padding:14px; margin-top:10px;">
+          <div class="form-row">
+            <div class="form-group">
+              <label>物件購入年齢</label>
+              <div class="input-wrapper">
+                <input type="number" id="buy_age" value="33" min="20" max="70" oninput="calculate()">
+                <span class="unit-suffix">歳</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>物件購入価格</label>
+              <div class="input-wrapper">
+                <input type="number" id="buy_price" value="4800" min="500" max="20000" step="100" oninput="syncLoanAmount(); calculate();">
+                <span class="unit-suffix">万円</span>
+              </div>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>頭金＋諸費用 (自己資金)</label>
+              <div class="input-wrapper">
+                <input type="number" id="buy_down_payment" value="500" min="0" max="5000" step="50" oninput="syncLoanAmount(); calculate();">
+                <span class="unit-suffix">万円</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>住宅ローン借入額</label>
+              <div class="input-wrapper">
+                <input type="number" id="buy_loan_amount" value="4300" min="0" max="20000" step="100" oninput="calculate()">
+                <span class="unit-suffix">万円</span>
+              </div>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>借入金利 (全期間固定想定)</label>
+              <div class="input-wrapper">
+                <input type="number" id="buy_loan_rate" value="1.0" min="0.1" max="5.0" step="0.05" oninput="calculate()">
+                <span class="unit-suffix">%/年</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>返済年数</label>
+              <div class="input-wrapper">
+                <input type="number" id="buy_loan_years" value="35" min="5" max="40" oninput="calculate()">
+                <span class="unit-suffix">年</span>
+              </div>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>ボーナス返済割合</label>
+              <div class="input-wrapper">
+                <input type="number" id="buy_loan_bonus_ratio" value="0" min="0" max="50" step="5" oninput="calculate()">
+                <span class="unit-suffix">%</span>
+              </div>
+              <p class="help-text">借入額のうちボーナス返済（年2回）に充当する割合（0〜50%）</p>
+            </div>
+            <div class="form-group">
+              <label>維持管理費・修繕積立金・固定資産税</label>
+              <div class="input-wrapper">
+                <input type="number" id="buy_maintenance_annual" value="35" min="0" max="200" step="5" oninput="calculate()">
+                <span class="unit-suffix">万円/年</span>
+              </div>
+              <p class="help-text">年間固定費（インフレ連動）</p>
+            </div>
+          </div>
+          <div style="background:#fff; border:1px solid var(--border); border-left:4px solid var(--primary); border-radius:8px; padding:10px 14px; margin-top:10px;">
+            <div style="font-size:0.82rem; font-weight:700; color:var(--primary); margin-bottom:4px;">💳 住宅ローン返済内訳プレビュー</div>
+            <div id="loan_repay_preview" style="font-size:0.8rem; color:var(--text-main); line-height:1.5;"></div>
+          </div>
+
+          <div class="checkbox-card" style="margin-top:12px;">
+            <input type="checkbox" id="mortgage_deduction_enabled" checked onchange="toggleMortgageDeductionFields(); calculate();">
+            <label for="mortgage_deduction_enabled">住宅ローン控除を適用する（新築・認定基準 13年間・年末残高×0.7%税額控除）</label>
+          </div>
+          <div id="mortgage_deduction_fields" class="form-group" style="margin-top:6px;">
+            <label>借入対象限度額 (住宅性能区分)</label>
+            <select id="mortgage_deduction_limit" onchange="calculate();">
+              <option value="4000" selected>省エネ適合住宅 / ZEH水準（借入限度 4,000万円・推奨）</option>
+              <option value="4500">認定長期優良住宅 / 低炭素住宅（借入限度 4,500万円）</option>
+              <option value="3000">一般新築住宅（借入限度 3,000万円）</option>
+            </select>
+            <p class="help-text">入居年（購入年）から13年間、年末残高（限度額内）の0.7%が所得税・住民税から直接減税されます。</p>
+          </div>
+        </div>
+
+        <div class="section-title">マイカー・車両費</div>
+        <div class="checkbox-card">
+          <input type="checkbox" id="car_enabled" checked onchange="toggleCarFields(); calculate();">
+          <label for="car_enabled">自家用車を保有する</label>
+        </div>
+        <div id="car_fields">
+          <div class="form-row">
+            <div class="form-group">
+              <label>初回購入年齢</label>
+              <div class="input-wrapper">
+                <input type="number" id="car_first_age" value="30" min="20" max="75" oninput="calculate()">
+                <span class="unit-suffix">歳</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>買替サイクル</label>
+              <div class="input-wrapper">
+                <input type="number" id="car_cycle" value="8" min="3" max="15" oninput="calculate()">
+                <span class="unit-suffix">年ごと</span>
+              </div>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>購入費用 (1回あたり)</label>
+              <div class="input-wrapper">
+                <input type="number" id="car_price" value="280" min="50" max="1500" step="10" oninput="calculate()">
+                <span class="unit-suffix">万円</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>年間維持費 (税/保険/車検/燃料)</label>
+              <div class="input-wrapper">
+                <input type="number" id="car_maintenance_annual" value="36" min="10" max="100" step="2" oninput="calculate()">
+                <span class="unit-suffix">万円/年</span>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>車両保有終了年齢 (免許返納等)</label>
+            <div class="input-wrapper">
+              <input type="number" id="car_end_age" value="75" min="50" max="90" oninput="calculate()">
+              <span class="unit-suffix">歳</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 3: 家族・教育 -->
+      <div class="tab-content" id="tab-family">
+        <div class="section-title">配偶者設定</div>
+        <div class="checkbox-card">
+          <input type="checkbox" id="spouse_enabled" checked onchange="toggleSpouseFields(); calculate();">
+          <label for="spouse_enabled">配偶者あり（または将来結婚予定）</label>
+        </div>
+        <div id="spouse_fields">
+          <div class="form-row">
+            <div class="form-group">
+              <label>結婚時本人年齢</label>
+              <div class="input-wrapper">
+                <input type="number" id="marriage_age" value="30" min="18" max="75" oninput="calculate()">
+                <span class="unit-suffix">歳</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>結婚費用 (挙式・新生活準備)</label>
+              <div class="input-wrapper">
+                <input type="number" id="marriage_cost" value="250" min="0" max="1000" step="10" oninput="calculate()">
+                <span class="unit-suffix">万円</span>
+              </div>
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom:12px;">
+            <label>配偶者の給与入力方式</label>
+            <select id="spouse_income_calc_mode" onchange="toggleSpouseIncomeCalcMode(); calculate();">
+              <option value="gross" selected>額面年収から税・社保を自動計算（推奨）</option>
+              <option value="net">手取り年収を直接入力</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>配偶者の現在年齢</label>
+              <div class="input-wrapper">
+                <input type="number" id="spouse_age" value="28" min="18" max="80" oninput="calculate()">
+                <span class="unit-suffix">歳</span>
+              </div>
+            </div>
+            <div class="form-group" id="spouse_gross_income_group">
+              <label>配偶者の額面年収</label>
+              <div class="input-wrapper">
+                <input type="number" id="spouse_gross_income" value="380" min="0" step="10" oninput="calculate()">
+                <span class="unit-suffix">万円</span>
+              </div>
+              <p class="help-text">賞与含む年間総支給額</p>
+            </div>
+            <div class="form-group" id="spouse_net_income_group" style="display:none;">
+              <label>配偶者の手取り年収</label>
+              <div class="input-wrapper">
+                <input type="number" id="spouse_income" value="300" min="0" step="10" oninput="calculate()">
+                <span class="unit-suffix">万円</span>
+              </div>
+              <p class="help-text">税・社保控除後の年間手取り</p>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>配偶者のボーナス割合</label>
+              <div class="input-wrapper">
+                <input type="number" id="spouse_bonus_ratio" value="20" min="0" max="60" step="5" oninput="calculate()">
+                <span class="unit-suffix">%</span>
+              </div>
+              <p class="help-text">配偶者年収のうち賞与が占める割合</p>
+            </div>
+            <div class="form-group">
+              <label>配偶者の昇給率</label>
+              <div class="input-wrapper">
+                <input type="number" id="spouse_raise" value="1.0" min="-5" max="10" step="0.1" oninput="calculate()">
+                <span class="unit-suffix">%/年</span>
+              </div>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>配偶者の退職年齢</label>
+              <div class="input-wrapper">
+                <input type="number" id="spouse_retire_age" value="60" min="40" max="75" oninput="calculate()">
+                <span class="unit-suffix">歳</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>配偶者の退職金</label>
+              <div class="input-wrapper">
+                <input type="number" id="spouse_retire_bonus" value="800" min="0" step="50" oninput="calculate()">
+                <span class="unit-suffix">万円</span>
+              </div>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>配偶者の年金受給額 (65歳〜)</label>
+              <div class="input-wrapper">
+                <input type="number" id="spouse_pension_annual" value="110" min="0" step="5" oninput="calculate()">
+                <span class="unit-suffix">万円/年</span>
+              </div>
+            </div>
+          </div>
+          <div style="background:#f8fafc; border:1px solid var(--border); border-left:4px solid var(--success, #10b981); border-radius:8px; padding:8px 12px; margin-bottom:12px;">
+            <div style="font-size:0.82rem; font-weight:700; color:var(--success, #10b981); margin-bottom:2px;">📊 配偶者給与内訳プレビュー</div>
+            <div id="spouse_income_preview" style="font-size:0.8rem; color:var(--text-main); line-height:1.5;"></div>
+          </div>
+        </div>
+
+        <div class="section-title">子ども・教育プラン</div>
+        <div class="form-group">
+          <label>子どもの人数</label>
+          <select id="child_count" onchange="renderChildInputs(); calculate();">
+            <option value="0">0人</option>
+            <option value="1">1人</option>
+            <option value="2" selected>2人</option>
+            <option value="3">3人</option>
+          </select>
+        </div>
+        <div id="children_container"></div>
+        <div class="checkbox-card" style="margin-top:14px;">
+          <input type="checkbox" id="child_allowance_enabled" checked onchange="calculate()">
+          <label for="child_allowance_enabled">公的児童手当（0〜高校生）を収入に算入</label>
+        </div>
+        <p class="help-text">2024年10月新基準（高校生まで月1万、第3子以降月3万）をベースに自動加算。</p>
+      </div>
+
+      <!-- Tab 4: 資産運用・年金 -->
+      <div class="tab-content" id="tab-invest">
+        <div class="section-title">現在の保有金融資産</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>現預金残高</label>
+            <div class="input-wrapper">
+              <input type="number" id="asset_cash_current" value="250" min="0" step="10" oninput="calculate()">
+              <span class="unit-suffix">万円</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>NISA口座残高 (現保有額)</label>
+            <div class="input-wrapper">
+              <input type="number" id="asset_nisa_current" value="150" min="0" step="10" oninput="calculate()">
+              <span class="unit-suffix">万円</span>
+            </div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>特定口座残高 (課税運用現保有額)</label>
+            <div class="input-wrapper">
+              <input type="number" id="asset_taxable_current" value="50" min="0" step="10" oninput="calculate()">
+              <span class="unit-suffix">万円</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>自社株保有残高 (持株会現保有額)</label>
+            <div class="input-wrapper">
+              <input type="number" id="asset_stock_current" value="0" min="0" step="10" oninput="calculate()">
+              <span class="unit-suffix">万円</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="checkbox-card" style="margin-top:14px;">
+          <input type="checkbox" id="cash_cap_enabled" checked onchange="toggleCashCapFields(); calculate();">
+          <label for="cash_cap_enabled">現預金に上限額（生活防衛資金）を設定し、超過分をすべて投資に回す</label>
+        </div>
+        <div id="cash_cap_fields" style="background:#f8fafc; border:1px solid var(--border); border-left:4px solid var(--primary); border-radius:8px; padding:12px 14px; margin-top:8px; margin-bottom:16px;">
+          <div class="form-row">
+            <div class="form-group">
+              <label>現預金の上限額 (生活防衛資金)</label>
+              <div class="input-wrapper">
+                <input type="number" id="cash_cap_amount" value="300" min="50" max="5000" step="50" oninput="calculate()">
+                <span class="unit-suffix">万円</span>
+              </div>
+              <p class="help-text">常に手元に残しておく目標現預金額</p>
+            </div>
+            <div class="form-group">
+              <label>超過分の投資先口座</label>
+              <select id="cash_cap_target" onchange="calculate()">
+                <option value="nisa_first">新NISA優先 (枠上限超過分は特定口座へ自動振替)</option>
+                <option value="taxable_only">特定口座 (課税口座) へ直接投資</option>
+              </select>
+              <p class="help-text">現預金が上限を超えた余剰資金の自動投資先</p>
+            </div>
+          </div>
+          <div id="cash_cap_preview" style="font-size:0.8rem; color:var(--text-main); line-height:1.5;"></div>
+        </div>
+
+        <div class="section-title">
+          <span>新NISAプラン（現行制度準拠・完全非課税）</span>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>毎月のNISA積立額</label>
+            <div class="input-wrapper">
+              <input type="number" id="nisa_monthly_amount" value="10" min="0" max="30" step="0.5" oninput="calculate()">
+              <span class="unit-suffix">万円/月</span>
+            </div>
+            <p class="help-text">年間枠最大360万円（月最大30万円）</p>
+          </div>
+          <div class="form-group">
+            <label>NISA積立開始〜終了年齢</label>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div class="input-wrapper" style="flex:1;">
+                <input type="number" id="nisa_start_age" value="28" min="18" max="75" oninput="calculate()">
+                <span class="unit-suffix">歳</span>
+              </div>
+              <span>〜</span>
+              <div class="input-wrapper" style="flex:1;">
+                <input type="number" id="nisa_end_age" value="60" min="18" max="75" oninput="calculate()">
+                <span class="unit-suffix">歳</span>
+              </div>
+            </div>
+            <p class="help-text">生涯枠1,800万円到達時は自動停止</p>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>NISA想定運用利回り</label>
+            <div class="input-wrapper">
+              <input type="number" id="nisa_return_rate" value="5.0" min="0" max="15" step="0.1" oninput="calculate()">
+              <span class="unit-suffix">%/年</span>
+            </div>
+            <p class="help-text">運用益・配当金は税率0%（完全非課税）</p>
+          </div>
+          <div class="form-group">
+            <label>新NISAシミュレーション概要</label>
+            <div id="nisa_status_preview" style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:10px 12px; font-size:0.78rem; color:#14532d; line-height:1.5;"></div>
+          </div>
+        </div>
+
+        <div class="section-title">
+          <span>NISA以外の投資（特定口座・スポット投資・課税20.315%）</span>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>毎月の特定口座積立額</label>
+            <div class="input-wrapper">
+              <input type="number" id="taxable_monthly_amount" value="0" min="0" step="0.5" oninput="calculate()">
+              <span class="unit-suffix">万円/月</span>
+            </div>
+            <p class="help-text">NISAとは別の課税投資積立</p>
+          </div>
+          <div class="form-group">
+            <label>特定口座積立開始〜終了年齢</label>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div class="input-wrapper" style="flex:1;">
+                <input type="number" id="taxable_start_age" value="28" min="18" max="75" oninput="calculate()">
+                <span class="unit-suffix">歳</span>
+              </div>
+              <span>〜</span>
+              <div class="input-wrapper" style="flex:1;">
+                <input type="number" id="taxable_end_age" value="60" min="18" max="75" oninput="calculate()">
+                <span class="unit-suffix">歳</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>特定口座の想定運用利回り</label>
+            <div class="input-wrapper">
+              <input type="number" id="taxable_return_rate" value="4.5" min="0" max="15" step="0.1" oninput="calculate()">
+              <span class="unit-suffix">%/年</span>
+            </div>
+            <p class="help-text">利益に対して20.315%が課税されます</p>
+          </div>
+          <div class="form-group">
+            <div class="checkbox-card" style="margin-top:4px;">
+              <input type="checkbox" id="nisa_overflow_to_taxable" checked onchange="calculate()">
+              <label for="nisa_overflow_to_taxable">NISA枠超過分を特定口座に自動投資</label>
+            </div>
+            <p class="help-text">NISA生涯枠(1,800万)満額後の積立金を特定口座へ継続</p>
+          </div>
+        </div>
+
+        <div style="margin-top:8px; margin-bottom:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <label style="font-weight:700; font-size:0.85rem; color:#1e3a8a;">📌 スポット投資（任意年齢での一括追加投資）</label>
+            <button type="button" class="text-button" onclick="addSpotInvestment()" style="font-size:0.8rem; font-weight:700; color:var(--primary); background:none; border:none; cursor:pointer;">＋ 追加投資を設定</button>
+          </div>
+          <div id="spot_investments_container"></div>
+        </div>
+
+        <div class="section-title">
+          <span>社内持株会・自社株積立（会社補助・奨励金制度）</span>
+        </div>
+        <div class="checkbox-card">
+          <input type="checkbox" id="stock_plan_enabled" checked onchange="toggleStockPlanFields(); calculate();">
+          <label for="stock_plan_enabled">自社株積立（従業員持株会）を利用する</label>
+        </div>
+        <div id="stock_plan_fields" style="margin-top:12px;">
+          <div class="form-row">
+            <div class="form-group">
+              <label>毎月の自己積立拠出額</label>
+              <div class="input-wrapper">
+                <input type="number" id="stock_monthly_amount" value="2" min="0" max="30" step="0.5" oninput="calculate()">
+                <span class="unit-suffix">万円/月</span>
+              </div>
+              <p class="help-text">給与天引きの自己負担額</p>
+            </div>
+            <div class="form-group">
+              <label>会社の奨励金（補助）率</label>
+              <div class="input-wrapper">
+                <input type="number" id="stock_subsidy_rate" value="10" min="0" max="50" step="1" oninput="calculate()">
+                <span class="unit-suffix">%</span>
+              </div>
+              <p class="help-text">一般的に5%〜10%程度の会社補助</p>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>自社株の想定リターン (株価上昇+配当)</label>
+              <div class="input-wrapper">
+                <input type="number" id="stock_return_rate" value="4.0" min="-5" max="20" step="0.1" oninput="calculate()">
+                <span class="unit-suffix">%/年</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>自社株積立終了年齢</label>
+              <div class="input-wrapper">
+                <input type="number" id="stock_end_age" value="60" min="20" max="75" oninput="calculate()">
+                <span class="unit-suffix">歳</span>
+              </div>
+              <p class="help-text">定年退職時まで積立</p>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>定年退職時の自社株の扱い</label>
+              <select id="stock_retire_action" onchange="calculate()">
+                <option value="sell_all">定年時に全売却して現金化（税引後）</option>
+                <option value="keep">退職後も自社株として保有・運用継続</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>会社補助によるメリット試算</label>
+              <div id="stock_subsidy_preview" style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:10px 12px; font-size:0.78rem; color:#1e40af; line-height:1.5;"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-title">取り崩し・現預金利回り・公的年金</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>赤字発生時の取り崩し優先順位</label>
+            <select id="drawdown_order" onchange="calculate()">
+              <option value="cash_first">1. 現預金 → 2. 特定口座 → 3. NISA (NISA非課税を最大温存)</option>
+              <option value="taxable_first">1. 特定口座 → 2. 現預金 → 3. NISA (生活防衛資金を守りNISA温存)</option>
+              <option value="nisa_first">1. NISA → 2. 特定口座 → 3. 現預金</option>
+              <option value="proportional">現預金・特定口座・NISAから残高按分して取り崩す</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>現預金の金利</label>
+            <div class="input-wrapper">
+              <input type="number" id="cash_interest_rate" value="0.2" min="0" max="3" step="0.05" oninput="calculate()">
+              <span class="unit-suffix">%/年</span>
+            </div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>年金受給開始年齢</label>
+            <div class="input-wrapper">
+              <input type="number" id="pension_start_age" value="65" min="60" max="75" oninput="calculate()">
+              <span class="unit-suffix">歳</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>年金受給見込み額 (手取り年額)</label>
+            <div class="input-wrapper">
+              <input type="number" id="pension_annual_amount" value="180" min="0" max="400" step="5" oninput="calculate()">
+              <span class="unit-suffix">万円/年</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 5: 特大イベント -->
+      <div class="tab-content" id="tab-events">
+        <div class="section-title">
+          <span>カスタムライフイベント</span>
+        </div>
+        <p class="help-text" style="margin-bottom: 14px;">大きな支出（旅行・リフォーム・留学・親の介護など）や臨時収入（生前贈与・遺産相続など）を自由に追加できます。</p>
+        <div id="events_list_container"></div>
+        <button type="button" class="add-btn" onclick="addCustomEvent()">＋ 新しいライフイベントを追加</button>
+
+        <details>
+          <summary>💡 よくあるライフイベントの費用目安</summary>
+          <p>
+            ・住宅リフォーム（水回り・外壁）: 150〜300万円<br>
+            ・海外旅行 / 家族大型旅行: 50〜150万円<br>
+            ・親の介護費用（一時金＋月額補填）: 150〜300万円<br>
+            ・子どもの結婚援助: 50〜200万円<br>
+            ・親からの生前贈与・相続: 100〜1,000万円
+          </p>
+        </details>
+      </div>
+    </div>
+
+    <!-- Right: Outputs & Charts Panel -->
+    <div class="outputs-panel">
+      <!-- Chart 1: Total Assets Growth -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">📈 純資産・金融資産残高の推移</div>
+            <div class="card-subtitle">現預金と運用資産の積立・複利運用・取り崩しの全体像</div>
+          </div>
+        </div>
+        <div class="chart-container" id="assetsChartContainer">
+          <canvas id="assetsChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 2: Annual Income & Expense -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">📊 各年齢の年間収支・キャッシュフロー推移</div>
+            <div class="card-subtitle">年間総収入（青棒） vs 年間総支出（赤棒） vs 年間収支差額（黄線）</div>
+          </div>
+        </div>
+        <div class="chart-container" id="cashflowChartContainer">
+          <canvas id="cashflowChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Detailed Table -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">📋 年齢別詳細キャッシュフロー明細表</div>
+            <div class="card-subtitle">各年ごとの収支内訳および資産残高一覧</div>
+          </div>
+          <div class="view-filter">
+            <select id="table_interval" onchange="renderTable()" style="width: auto; padding: 6px 10px; font-size:0.85rem;">
+              <option value="1">全年齢を表示 (詳細)</option>
+              <option value="5">5年刻み＋節目のみ</option>
+              <option value="events">イベント発生年＋赤字年のみ</option>
+            </select>
+            <button class="btn-action" onclick="exportToCSV()">
+              <span>📥 CSV保存</span>
+            </button>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table id="details_table">
+            <thead>
+              <tr>
+                <th class="text-center">年齢</th>
+                <th class="text-center">西暦</th>
+                <th class="text-left">主なライフイベント</th>
+                <th>本人給与</th>
+                <th>配偶者給与</th>
+                <th>年金/臨時</th>
+                <th>総収入</th>
+                <th>基本生活費</th>
+                <th>住居費</th>
+                <th>教育費</th>
+                <th>車両/特別</th>
+                <th>総支出</th>
+                <th>年間収支</th>
+                <th style="color:#0284c7;">資産収益額</th>
+                <th>現預金</th>
+                <th>NISA残高</th>
+                <th>特定口座</th>
+                <th>自社株残高</th>
+                <th>純資産合計</th>
+              </tr>
+            </thead>
+            <tbody id="table_body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// State Management
+let simulationResults = [];
+let assetsChartInstance = null;
+let cashflowChartInstance = null;
+let currentActivePreset = 'single';
+let saveTimeout = null;
+
+let spotInvestments = [
+  { age: 35, amount: 100, account: 'nisa_preferred' }
+];
+
+const STORAGE_KEY = 'life_plan_simulator_data_v1';
+const INPUT_IDS = [
+  'base_age', 'base_end_age',
+  'income_self_calc_mode', 'income_self_gross_annual', 'income_self_gross_peak_amount', 'rehire_self_gross_income',
+  'income_self_annual', 'income_self_bonus_ratio', 'income_self_peak_age', 'income_self_peak_amount', 'retire_self_age', 'retire_self_bonus',
+  'rehire_self_enabled', 'rehire_self_end_age', 'rehire_self_income',
+  'deduction_furusato_amount', 'deduction_ideco_monthly', 'deduction_life_insurance',
+  'inflation_rate',
+  'expense_living_monthly', 'expense_living_retire_ratio', 'expense_married_ratio',
+  'housing_type', 'rent_monthly', 'rent_update_annual',
+  'buy_age', 'buy_price', 'buy_down_payment', 'buy_loan_amount', 'buy_loan_rate', 'buy_loan_years', 'buy_loan_bonus_ratio', 'buy_maintenance_annual',
+  'mortgage_deduction_enabled', 'mortgage_deduction_limit',
+  'car_enabled', 'car_first_age', 'car_cycle', 'car_price', 'car_maintenance_annual', 'car_end_age',
+  'spouse_enabled', 'marriage_age', 'marriage_cost', 'spouse_income_calc_mode', 'spouse_gross_income', 'spouse_age', 'spouse_income', 'spouse_bonus_ratio', 'spouse_raise', 'spouse_retire_age', 'spouse_retire_bonus', 'spouse_pension_annual',
+  'child_count', 'child_allowance_enabled',
+  'asset_cash_current', 'cash_cap_enabled', 'cash_cap_amount', 'cash_cap_target',
+  'asset_nisa_current', 'asset_taxable_current', 'asset_stock_current',
+  'nisa_monthly_amount', 'nisa_start_age', 'nisa_end_age', 'nisa_return_rate',
+  'taxable_monthly_amount', 'taxable_start_age', 'taxable_end_age', 'taxable_return_rate', 'nisa_overflow_to_taxable',
+  'stock_plan_enabled', 'stock_monthly_amount', 'stock_subsidy_rate', 'stock_return_rate', 'stock_end_age', 'stock_retire_action',
+  'drawdown_order', 'cash_interest_rate', 'pension_start_age', 'pension_annual_amount',
+  'table_interval'
+];
+
+function saveToLocalStorage() {
+  try {
+    const inputsData = {};
+    INPUT_IDS.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        if (el.type === 'checkbox') {
+          inputsData[id] = el.checked;
+        } else {
+          inputsData[id] = el.value;
+        }
+      }
+    });
+
+    const payload = {
+      version: 2,
+      savedAt: new Date().toISOString(),
+      activePreset: currentActivePreset,
+      inputs: inputsData,
+      childrenData: childrenData,
+      customEvents: customEvents,
+      spotInvestments: spotInvestments
+    };
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    updateStorageStatusUI('保存済み');
+  } catch (err) {
+    console.warn('LocalStorage save failed:', err);
+    updateStorageStatusUI('保存失敗', true);
+  }
+}
+
+function debouncedSaveToLocalStorage() {
+  updateStorageStatusUI('保存中...', false, true);
+  if (saveTimeout) clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(() => {
+    saveToLocalStorage();
+  }, 350);
+}
+
+function updateStorageStatusUI(text, isError = false, isSaving = false) {
+  const pill = document.getElementById('storage-status-indicator');
+  const label = document.getElementById('storage-status-text');
+  if (!pill || !label) return;
+
+  label.textContent = text;
+  pill.classList.remove('saving', 'error');
+  if (isSaving) {
+    pill.classList.add('saving');
+  } else if (isError) {
+    pill.classList.add('error');
+  }
+}
+
+function markAsCustomized() {
+  if (currentActivePreset) {
+    currentActivePreset = null;
+    document.querySelectorAll('.preset-btn').forEach(b => {
+      if (!b.classList.contains('reset-btn')) {
+        b.classList.remove('active');
+      }
+    });
+  }
+}
+
+function toggleCashCapFields() {
+  const enabled = document.getElementById('cash_cap_enabled').checked;
+  const fields = document.getElementById('cash_cap_fields');
+  if (fields) fields.style.display = enabled ? 'block' : 'none';
+}
+
+function toggleStockPlanFields() {
+  const enabled = document.getElementById('stock_plan_enabled').checked;
+  const fields = document.getElementById('stock_plan_fields');
+  if (fields) fields.style.display = enabled ? 'block' : 'none';
+}
+
+function renderSpotInvestments() {
+  const container = document.getElementById('spot_investments_container');
+  if (!container) return;
+  container.innerHTML = '';
+  spotInvestments.forEach((s, idx) => {
+    const row = document.createElement('div');
+    row.className = 'spot-row';
+    row.innerHTML = `
+      <div class="input-wrapper">
+        <input type="number" value="${s.age}" min="18" max="95" onchange="spotInvestments[${idx}].age=parseInt(this.value,10); calculate();">
+        <span class="unit-suffix">歳</span>
+      </div>
+      <div class="input-wrapper">
+        <input type="number" value="${s.amount}" min="0" step="10" onchange="spotInvestments[${idx}].amount=parseFloat(this.value); calculate();">
+        <span class="unit-suffix">万円</span>
+      </div>
+      <select onchange="spotInvestments[${idx}].account=this.value; calculate();">
+        <option value="nisa_preferred" ${s.account === 'nisa_preferred' ? 'selected' : ''}>NISA優先(余り特定)</option>
+        <option value="taxable" ${s.account === 'taxable' ? 'selected' : ''}>特定口座(課税)</option>
+      </select>
+      <button class="del-btn" onclick="deleteSpotInvestment(${idx})" title="削除">×</button>
+    `;
+    container.appendChild(row);
+  });
+}
+
+function addSpotInvestment() {
+  const currentAge = parseInt(document.getElementById('base_age').value, 10) || 28;
+  spotInvestments.push({ age: currentAge + 5, amount: 100, account: 'nisa_preferred' });
+  renderSpotInvestments();
+  calculate();
+}
+
+function deleteSpotInvestment(idx) {
+  spotInvestments.splice(idx, 1);
+  renderSpotInvestments();
+  calculate();
+}
+
+function loadFromLocalStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+
+    const data = JSON.parse(raw);
+    if (!data || typeof data !== 'object') return false;
+
+    // Restore inputs
+    if (data.inputs && typeof data.inputs === 'object') {
+      INPUT_IDS.forEach(id => {
+        if (id in data.inputs) {
+          const el = document.getElementById(id);
+          if (el) {
+            if (el.type === 'checkbox') {
+              el.checked = Boolean(data.inputs[id]);
+            } else {
+              el.value = data.inputs[id];
+            }
+          }
+        }
+      });
+
+      // Backward compatibility: If old stored data had income_self_raise instead of peak values
+      if (data.inputs && !('income_self_peak_age' in data.inputs)) {
+        const baseAge = parseFloat(data.inputs.base_age) || 28;
+        const currentIncome = parseFloat(data.inputs.income_self_annual) || 450;
+        const oldRaise = parseFloat(data.inputs.income_self_raise) || 1.5;
+        const peakAge = 50;
+        const peakAmount = Math.round(currentIncome * Math.pow(1 + oldRaise / 100, Math.max(0, peakAge - baseAge)));
+        const peakAgeEl = document.getElementById('income_self_peak_age');
+        const peakAmountEl = document.getElementById('income_self_peak_amount');
+        if (peakAgeEl) peakAgeEl.value = peakAge;
+        if (peakAmountEl) peakAmountEl.value = peakAmount;
+      }
+
+      // Backward compatibility: If old stored data had single invest values
+      if (data.inputs && !('asset_nisa_current' in data.inputs)) {
+        const oldInvestCurrent = parseFloat(data.inputs.asset_invest_current) || 200;
+        const oldMonthlyInvest = parseFloat(data.inputs.invest_monthly_amount) || 5;
+        const oldEndAge = parseInt(data.inputs.invest_end_age, 10) || 60;
+        const oldReturn = parseFloat(data.inputs.invest_return_rate) || 4.0;
+        
+        const elNisaCur = document.getElementById('asset_nisa_current');
+        const elNisaMonth = document.getElementById('nisa_monthly_amount');
+        const elNisaEnd = document.getElementById('nisa_end_age');
+        const elNisaRet = document.getElementById('nisa_return_rate');
+        if (elNisaCur) elNisaCur.value = oldInvestCurrent;
+        if (elNisaMonth) elNisaMonth.value = oldMonthlyInvest;
+        if (elNisaEnd) elNisaEnd.value = oldEndAge;
+        if (elNisaRet) elNisaRet.value = oldReturn;
+      }
+
+      // Backward compatibility: If old stored data had no bonus ratios
+      if (data.inputs && !('income_self_bonus_ratio' in data.inputs)) {
+        const elSelfBonus = document.getElementById('income_self_bonus_ratio');
+        if (elSelfBonus) elSelfBonus.value = 20;
+      }
+      if (data.inputs && !('buy_loan_bonus_ratio' in data.inputs)) {
+        const elLoanBonus = document.getElementById('buy_loan_bonus_ratio');
+        if (elLoanBonus) elLoanBonus.value = 0;
+      }
+      if (data.inputs && !('spouse_bonus_ratio' in data.inputs)) {
+        const elSpouseBonus = document.getElementById('spouse_bonus_ratio');
+        if (elSpouseBonus) elSpouseBonus.value = 20;
+      }
+
+      // Backward compatibility: If old stored data had no cash cap settings
+      if (data.inputs && !('cash_cap_enabled' in data.inputs)) {
+        const elCapEn = document.getElementById('cash_cap_enabled');
+        if (elCapEn) elCapEn.checked = true;
+      }
+      if (data.inputs && !('cash_cap_amount' in data.inputs)) {
+        const elCapAmt = document.getElementById('cash_cap_amount');
+        if (elCapAmt) elCapAmt.value = 300;
+      }
+      if (data.inputs && !('cash_cap_target' in data.inputs)) {
+        const elCapTgt = document.getElementById('cash_cap_target');
+        if (elCapTgt) elCapTgt.value = 'nisa_first';
+      }
+
+      // Backward compatibility: If old stored data had no income calc modes
+      if (data.inputs && !('income_self_calc_mode' in data.inputs)) {
+        const el = document.getElementById('income_self_calc_mode');
+        if (el) el.value = 'gross';
+      }
+      if (data.inputs && !('income_self_gross_annual' in data.inputs)) {
+        const elGross = document.getElementById('income_self_gross_annual');
+        if (elGross) elGross.value = 580;
+      }
+      if (data.inputs && !('income_self_gross_peak_amount' in data.inputs)) {
+        const elGrossPeak = document.getElementById('income_self_gross_peak_amount');
+        if (elGrossPeak) elGrossPeak.value = 950;
+      }
+      if (data.inputs && !('rehire_self_gross_income' in data.inputs)) {
+        const elRehireGross = document.getElementById('rehire_self_gross_income');
+        if (elRehireGross) elRehireGross.value = 330;
+      }
+      if (data.inputs && !('spouse_income_calc_mode' in data.inputs)) {
+        const elSpouseMode = document.getElementById('spouse_income_calc_mode');
+        if (elSpouseMode) elSpouseMode.value = 'gross';
+      }
+      if (data.inputs && !('spouse_gross_income' in data.inputs)) {
+        const elSpouseGross = document.getElementById('spouse_gross_income');
+        if (elSpouseGross) elSpouseGross.value = 380;
+      }
+
+      // Backward compatibility: If old stored data had no deduction settings
+      if (data.inputs && !('deduction_furusato_amount' in data.inputs)) {
+        const el = document.getElementById('deduction_furusato_amount');
+        if (el) el.value = 5;
+      }
+      if (data.inputs && !('deduction_ideco_monthly' in data.inputs)) {
+        const el = document.getElementById('deduction_ideco_monthly');
+        if (el) el.value = 0;
+      }
+      if (data.inputs && !('deduction_life_insurance' in data.inputs)) {
+        const el = document.getElementById('deduction_life_insurance');
+        if (el) el.value = 0;
+      }
+      if (data.inputs && !('mortgage_deduction_enabled' in data.inputs)) {
+        const el = document.getElementById('mortgage_deduction_enabled');
+        if (el) el.checked = true;
+      }
+      if (data.inputs && !('mortgage_deduction_limit' in data.inputs)) {
+        const el = document.getElementById('mortgage_deduction_limit');
+        if (el) el.value = '4000';
+      }
+    }
+
+    // Restore children
+    if (Array.isArray(data.childrenData)) {
+      childrenData = JSON.parse(JSON.stringify(data.childrenData));
+    }
+
+    // Restore custom events
+    if (Array.isArray(data.customEvents)) {
+      customEvents = JSON.parse(JSON.stringify(data.customEvents));
+    }
+
+    // Restore spot investments
+    if (Array.isArray(data.spotInvestments)) {
+      spotInvestments = JSON.parse(JSON.stringify(data.spotInvestments));
+    }
+
+    // Restore active preset
+    currentActivePreset = data.activePreset || null;
+    document.querySelectorAll('.preset-btn').forEach(b => {
+      if (!b.classList.contains('reset-btn')) {
+        b.classList.remove('active');
+      }
+    });
+    if (currentActivePreset) {
+      const activeBtn = document.getElementById('btn-preset-' + currentActivePreset);
+      if (activeBtn) activeBtn.classList.add('active');
+    }
+
+    // Re-render subcomponents & toggles
+    renderChildInputs();
+    renderCustomEvents();
+    renderSpotInvestments();
+    toggleIncomeCalcMode();
+    toggleSpouseIncomeCalcMode();
+    toggleSelfRehire();
+    toggleHousingFields();
+    toggleCarFields();
+    toggleSpouseFields();
+    toggleStockPlanFields();
+    toggleCashCapFields();
+
+    calculate(false); // calculate without re-saving
+    updateStorageStatusUI('前回保存したデータを復元しました');
+    setTimeout(() => {
+      updateStorageStatusUI('自動保存: 有効');
+    }, 2500);
+    return true;
+  } catch (err) {
+    console.warn('Failed to load from localStorage:', err);
+    return false;
+  }
+}
+
+function resetToInitialPreset() {
+  if (confirm('ブラウザのLocalStorageに保存された入力データを削除し、初期設定（独身キャリア）に戻しますか？')) {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (e) {
+      console.warn(e);
+    }
+    selectPreset('single');
+    updateStorageStatusUI('初期設定に戻しました');
+    setTimeout(() => {
+      updateStorageStatusUI('自動保存: 有効');
+    }, 2500);
+  }
+}
+
+let customEvents = [
+  { name: "海外旅行・家族記念旅行", age: 35, type: "expense", amount: 100 },
+  { name: "住宅大規模修繕・リフォーム", age: 50, type: "expense", amount: 200 },
+  { name: "親からの相続・贈与", age: 58, type: "income", amount: 300 }
+];
+
+let childrenData = [
+  { birthAge: 31, course: "public_univ_private_bun" },
+  { birthAge: 34, course: "public_univ_private_ri" }
+];
+
+const presets = {
+  single: {
+    base_age: 28,
+    base_end_age: 95,
+    income_self_calc_mode: 'gross',
+    income_self_gross_annual: 580,
+    income_self_gross_peak_amount: 950,
+    income_self_annual: 450,
+    income_self_bonus_ratio: 20,
+    income_self_peak_age: 50,
+    income_self_peak_amount: 700,
+    retire_self_age: 60,
+    retire_self_bonus: 1500,
+    rehire_self_enabled: true,
+    rehire_self_end_age: 65,
+    rehire_self_gross_income: 330,
+    rehire_self_income: 260,
+    deduction_furusato_amount: 5,
+    deduction_ideco_monthly: 0,
+    deduction_life_insurance: 0,
+    mortgage_deduction_enabled: true,
+    mortgage_deduction_limit: '4000',
+    inflation_rate: 1.0,
+    expense_living_monthly: 16,
+    expense_living_retire_ratio: 75,
+    expense_married_ratio: 150,
+    housing_type: "rent",
+    rent_monthly: 9.5,
+    rent_update_annual: 5,
+    buy_age: 35,
+    buy_price: 4500,
+    buy_down_payment: 500,
+    buy_loan_amount: 4000,
+    buy_loan_rate: 1.0,
+    buy_loan_years: 35,
+    buy_loan_bonus_ratio: 0,
+    buy_maintenance_annual: 30,
+    car_enabled: false,
+    spouse_enabled: false,
+    spouse_income_calc_mode: 'gross',
+    spouse_gross_income: 0,
+    spouse_bonus_ratio: 20,
+    child_count: 0,
+    children: [],
+    asset_cash_current: 250,
+    cash_cap_enabled: true,
+    cash_cap_amount: 250,
+    cash_cap_target: 'nisa_first',
+    asset_nisa_current: 200,
+    asset_taxable_current: 50,
+    asset_stock_current: 0,
+    nisa_monthly_amount: 8,
+    nisa_start_age: 28,
+    nisa_end_age: 60,
+    nisa_return_rate: 5.0,
+    taxable_monthly_amount: 0,
+    taxable_start_age: 28,
+    taxable_end_age: 60,
+    taxable_return_rate: 4.5,
+    nisa_overflow_to_taxable: true,
+    stock_plan_enabled: false,
+    stock_monthly_amount: 2,
+    stock_subsidy_rate: 10,
+    stock_return_rate: 4.0,
+    stock_end_age: 60,
+    stock_retire_action: 'sell_all',
+    spot_investments: [
+      { age: 35, amount: 100, account: 'nisa_preferred' }
+    ],
+    cash_interest_rate: 0.2,
+    pension_start_age: 65,
+    pension_annual_amount: 180,
+    events: [
+      { name: "自己投資・スキルアップ", age: 31, type: "expense", amount: 100 },
+      { name: "親からの生前贈与", age: 55, type: "income", amount: 200 }
+    ]
+  },
+  dinks: {
+    base_age: 30,
+    base_end_age: 95,
+    income_self_calc_mode: 'gross',
+    income_self_gross_annual: 720,
+    income_self_gross_peak_amount: 1180,
+    income_self_annual: 550,
+    income_self_bonus_ratio: 25,
+    income_self_peak_age: 50,
+    income_self_peak_amount: 850,
+    retire_self_age: 60,
+    retire_self_bonus: 1800,
+    rehire_self_enabled: true,
+    rehire_self_end_age: 65,
+    rehire_self_gross_income: 360,
+    rehire_self_income: 280,
+    deduction_furusato_amount: 10,
+    deduction_ideco_monthly: 2.3,
+    deduction_life_insurance: 10,
+    mortgage_deduction_enabled: true,
+    mortgage_deduction_limit: '4000',
+    inflation_rate: 1.2,
+    expense_living_monthly: 24,
+    expense_living_retire_ratio: 75,
+    expense_married_ratio: 140,
+    housing_type: "buy",
+    rent_monthly: 14,
+    rent_update_annual: 7,
+    buy_age: 33,
+    buy_price: 6500,
+    buy_down_payment: 800,
+    buy_loan_amount: 5700,
+    buy_loan_rate: 1.1,
+    buy_loan_years: 35,
+    buy_loan_bonus_ratio: 15,
+    buy_maintenance_annual: 45,
+    car_enabled: true,
+    car_first_age: 32,
+    car_cycle: 7,
+    car_price: 320,
+    car_maintenance_annual: 36,
+    car_end_age: 75,
+    spouse_enabled: true,
+    marriage_age: 30,
+    marriage_cost: 300,
+    spouse_income_calc_mode: 'gross',
+    spouse_gross_income: 580,
+    spouse_age: 30,
+    spouse_income: 450,
+    spouse_bonus_ratio: 25,
+    spouse_raise: 1.5,
+    spouse_retire_age: 60,
+    spouse_retire_bonus: 1200,
+    spouse_pension_annual: 160,
+    child_count: 0,
+    children: [],
+    asset_cash_current: 400,
+    cash_cap_enabled: true,
+    cash_cap_amount: 400,
+    cash_cap_target: 'nisa_first',
+    asset_nisa_current: 350,
+    asset_taxable_current: 100,
+    asset_stock_current: 50,
+    nisa_monthly_amount: 15,
+    nisa_start_age: 30,
+    nisa_end_age: 60,
+    nisa_return_rate: 5.0,
+    taxable_monthly_amount: 5,
+    taxable_start_age: 30,
+    taxable_end_age: 60,
+    taxable_return_rate: 4.5,
+    nisa_overflow_to_taxable: true,
+    stock_plan_enabled: true,
+    stock_monthly_amount: 3,
+    stock_subsidy_rate: 10,
+    stock_return_rate: 4.5,
+    stock_end_age: 60,
+    stock_retire_action: 'sell_all',
+    spot_investments: [
+      { age: 36, amount: 150, account: 'nisa_preferred' }
+    ],
+    cash_interest_rate: 0.2,
+    pension_start_age: 65,
+    pension_annual_amount: 200,
+    events: [
+      { name: "ハネムーン＆記念旅行", age: 31, type: "expense", amount: 150 },
+      { name: "マンション大規模リノベーション", age: 48, type: "expense", amount: 350 }
+    ]
+  },
+  family: {
+    base_age: 28,
+    base_end_age: 95,
+    income_self_calc_mode: 'gross',
+    income_self_gross_annual: 620,
+    income_self_gross_peak_amount: 1020,
+    income_self_annual: 480,
+    income_self_bonus_ratio: 20,
+    income_self_peak_age: 50,
+    income_self_peak_amount: 750,
+    retire_self_age: 60,
+    retire_self_bonus: 1500,
+    rehire_self_enabled: true,
+    rehire_self_end_age: 65,
+    rehire_self_gross_income: 330,
+    rehire_self_income: 260,
+    deduction_furusato_amount: 8,
+    deduction_ideco_monthly: 2.0,
+    deduction_life_insurance: 12,
+    mortgage_deduction_enabled: true,
+    mortgage_deduction_limit: '4000',
+    inflation_rate: 1.0,
+    expense_living_monthly: 20,
+    expense_living_retire_ratio: 75,
+    expense_married_ratio: 150,
+    housing_type: "buy",
+    rent_monthly: 11,
+    rent_update_annual: 6,
+    buy_age: 33,
+    buy_price: 4800,
+    buy_down_payment: 500,
+    buy_loan_amount: 4300,
+    buy_loan_rate: 0.9,
+    buy_loan_years: 35,
+    buy_loan_bonus_ratio: 20,
+    buy_maintenance_annual: 35,
+    car_enabled: true,
+    car_first_age: 31,
+    car_cycle: 8,
+    car_price: 260,
+    car_maintenance_annual: 36,
+    car_end_age: 75,
+    spouse_enabled: true,
+    marriage_age: 29,
+    marriage_cost: 250,
+    spouse_income_calc_mode: 'gross',
+    spouse_gross_income: 380,
+    spouse_age: 28,
+    spouse_income: 300,
+    spouse_bonus_ratio: 20,
+    spouse_raise: 1.0,
+    spouse_retire_age: 60,
+    spouse_retire_bonus: 800,
+    spouse_pension_annual: 110,
+    child_count: 2,
+    children: [
+      { birthAge: 31, course: "public_univ_private_bun" },
+      { birthAge: 34, course: "public_univ_private_ri" }
+    ],
+    asset_cash_current: 250,
+    cash_cap_enabled: true,
+    cash_cap_amount: 500,
+    cash_cap_target: 'nisa_first',
+    asset_nisa_current: 180,
+    asset_taxable_current: 50,
+    asset_stock_current: 20,
+    nisa_monthly_amount: 10,
+    nisa_start_age: 28,
+    nisa_end_age: 60,
+    nisa_return_rate: 4.5,
+    taxable_monthly_amount: 0,
+    taxable_start_age: 28,
+    taxable_end_age: 60,
+    taxable_return_rate: 4.0,
+    nisa_overflow_to_taxable: true,
+    stock_plan_enabled: true,
+    stock_monthly_amount: 2,
+    stock_subsidy_rate: 10,
+    stock_return_rate: 4.0,
+    stock_end_age: 60,
+    stock_retire_action: 'sell_all',
+    spot_investments: [
+      { age: 38, amount: 100, account: 'nisa_preferred' }
+    ],
+    cash_interest_rate: 0.2,
+    pension_start_age: 65,
+    pension_annual_amount: 180,
+    events: [
+      { name: "住宅リフォーム費用", age: 52, type: "expense", amount: 250 },
+      { name: "親からのマイホーム資金援助", age: 33, type: "income", amount: 150 }
+    ]
+  }
+};
+
+function switchTab(tabId, el) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  if (el) el.classList.add('active');
+  const target = document.getElementById('tab-' + tabId);
+  if (target) target.classList.add('active');
+}
+
+function toggleIncomeCalcMode() {
+  const modeEl = document.getElementById('income_self_calc_mode');
+  const mode = modeEl ? modeEl.value : 'gross';
+  const isGross = (mode === 'gross');
+  const grossGroup = document.getElementById('self_gross_inputs');
+  const netGroup = document.getElementById('self_net_inputs');
+  if (grossGroup) grossGroup.style.display = isGross ? 'block' : 'none';
+  if (netGroup) netGroup.style.display = isGross ? 'none' : 'block';
+  const rehireGrossGroup = document.getElementById('self_rehire_gross_group');
+  const rehireNetGroup = document.getElementById('self_rehire_net_group');
+  if (rehireGrossGroup) rehireGrossGroup.style.display = isGross ? 'block' : 'none';
+  if (rehireNetGroup) rehireNetGroup.style.display = isGross ? 'none' : 'block';
+}
+
+function toggleSpouseIncomeCalcMode() {
+  const modeEl = document.getElementById('spouse_income_calc_mode');
+  const mode = modeEl ? modeEl.value : 'gross';
+  const isGross = (mode === 'gross');
+  const grossGroup = document.getElementById('spouse_gross_income_group');
+  const netGroup = document.getElementById('spouse_net_income_group');
+  if (grossGroup) grossGroup.style.display = isGross ? 'block' : 'none';
+  if (netGroup) netGroup.style.display = isGross ? 'none' : 'block';
+}
+
+function toggleSelfRehire() {
+  const enabled = document.getElementById('rehire_self_enabled').checked;
+  document.getElementById('self_rehire_fields').style.display = enabled ? 'grid' : 'none';
+}
+
+function toggleHousingFields() {
+  const type = document.getElementById('housing_type').value;
+  const rentTitle = document.getElementById('rent_label_title');
+  if (type === 'rent') {
+    rentTitle.textContent = "家賃月額";
+    document.getElementById('housing_buy_fields').style.display = 'none';
+  } else {
+    rentTitle.textContent = "購入前の家賃月額";
+    document.getElementById('housing_buy_fields').style.display = 'block';
+    toggleMortgageDeductionFields();
+  }
+}
+
+function toggleMortgageDeductionFields() {
+  const el = document.getElementById('mortgage_deduction_enabled');
+  const enabled = el ? el.checked : true;
+  const fields = document.getElementById('mortgage_deduction_fields');
+  if (fields) fields.style.display = enabled ? 'block' : 'none';
+}
+
+function syncLoanAmount() {
+  const price = parseFloat(document.getElementById('buy_price').value) || 0;
+  const down = parseFloat(document.getElementById('buy_down_payment').value) || 0;
+  document.getElementById('buy_loan_amount').value = Math.max(0, price - down);
+}
+
+function toggleCarFields() {
+  const enabled = document.getElementById('car_enabled').checked;
+  document.getElementById('car_fields').style.display = enabled ? 'block' : 'none';
+}
+
+function toggleSpouseFields() {
+  const enabled = document.getElementById('spouse_enabled').checked;
+  document.getElementById('spouse_fields').style.display = enabled ? 'block' : 'none';
+}
+
+function renderChildInputs() {
+  const count = parseInt(document.getElementById('child_count').value, 10);
+  const container = document.getElementById('children_container');
+  container.innerHTML = '';
+
+  while (childrenData.length < count) {
+    childrenData.push({ birthAge: 30 + childrenData.length * 3, course: "public_univ_private_bun" });
+  }
+  childrenData = childrenData.slice(0, count);
+
+  for (let i = 0; i < count; i++) {
+    const item = document.createElement('div');
+    item.className = 'item-card';
+    item.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <span style="font-weight:700; font-size:0.85rem; color:#1e40af;">👶 第${i+1}子</span>
+      </div>
+      <div class="form-row">
+        <div>
+          <label>誕生時本人年齢</label>
+          <div class="input-wrapper">
+            <input type="number" value="${childrenData[i].birthAge}" min="18" max="60" oninput="updateChildData(${i}, 'birthAge', this.value)">
+            <span class="unit-suffix">歳</span>
+          </div>
+        </div>
+        <div>
+          <label>進路コース目安</label>
+          <select onchange="updateChildData(${i}, 'course', this.value)">
+            <option value="all_public" ${childrenData[i].course === 'all_public' ? 'selected' : ''}>オール公立 (総額約550万)</option>
+            <option value="public_univ_private_bun" ${childrenData[i].course === 'public_univ_private_bun' ? 'selected' : ''}>高まで公立・私大文系 (総額約800万)</option>
+            <option value="public_univ_private_ri" ${childrenData[i].course === 'public_univ_private_ri' ? 'selected' : ''}>高まで公立・私大理系 (総額約950万)</option>
+            <option value="all_private" ${childrenData[i].course === 'all_private' ? 'selected' : ''}>オール私立 (総額約1,800万)</option>
+          </select>
+        </div>
+      </div>
+    `;
+    container.appendChild(item);
+  }
+}
+
+function updateChildData(idx, key, val) {
+  if (key === 'birthAge') childrenData[idx].birthAge = parseInt(val, 10) || 30;
+  if (key === 'course') childrenData[idx].course = val;
+  calculate();
+}
+
+function renderCustomEvents() {
+  const container = document.getElementById('events_list_container');
+  container.innerHTML = '';
+  customEvents.forEach((ev, idx) => {
+    const row = document.createElement('div');
+    row.className = 'event-row';
+    row.innerHTML = `
+      <input type="text" value="${ev.name}" placeholder="イベント名" onchange="customEvents[${idx}].name=this.value; calculate();">
+      <div class="input-wrapper">
+        <input type="number" value="${ev.age}" min="18" max="110" onchange="customEvents[${idx}].age=parseInt(this.value,10); calculate();">
+        <span class="unit-suffix">歳</span>
+      </div>
+      <select onchange="customEvents[${idx}].type=this.value; calculate();">
+        <option value="expense" ${ev.type === 'expense' ? 'selected' : ''}>支出</option>
+        <option value="income" ${ev.type === 'income' ? 'selected' : ''}>臨時収入</option>
+      </select>
+      <div class="input-wrapper">
+        <input type="number" value="${ev.amount}" min="0" step="10" onchange="customEvents[${idx}].amount=parseFloat(this.value); calculate();">
+        <span class="unit-suffix">万円</span>
+      </div>
+      <button class="del-btn" onclick="deleteCustomEvent(${idx})" title="削除">×</button>
+    `;
+    container.appendChild(row);
+  });
+}
+
+function addCustomEvent() {
+  const currentAge = parseInt(document.getElementById('base_age').value, 10) || 30;
+  customEvents.push({ name: "新規イベント", age: currentAge + 5, type: "expense", amount: 50 });
+  renderCustomEvents();
+  calculate();
+}
+
+function deleteCustomEvent(idx) {
+  customEvents.splice(idx, 1);
+  renderCustomEvents();
+  calculate();
+}
+
+function selectPreset(key, shouldSave = true) {
+  document.querySelectorAll('.preset-btn').forEach(b => {
+    if (!b.classList.contains('reset-btn')) {
+      b.classList.remove('active');
+    }
+  });
+  const btn = document.getElementById('btn-preset-' + key);
+  if (btn) btn.classList.add('active');
+  currentActivePreset = key;
+
+  const p = presets[key];
+  if (!p) return;
+
+  for (let k in p) {
+    if (k === 'events') {
+      customEvents = JSON.parse(JSON.stringify(p.events));
+    } else if (k === 'children') {
+      childrenData = JSON.parse(JSON.stringify(p.children));
+    } else if (k === 'spot_investments') {
+      spotInvestments = JSON.parse(JSON.stringify(p.spot_investments));
+      renderSpotInvestments();
+    } else if (k === 'child_count') {
+      document.getElementById(k).value = p[k];
+      renderChildInputs();
+    } else {
+      const el = document.getElementById(k);
+      if (el) {
+        if (el.type === 'checkbox') el.checked = p[k];
+        else el.value = p[k];
+      }
+    }
+  }
+
+  toggleIncomeCalcMode();
+  toggleSpouseIncomeCalcMode();
+  toggleSelfRehire();
+  toggleHousingFields();
+  toggleCarFields();
+  toggleSpouseFields();
+  toggleStockPlanFields();
+  toggleCashCapFields();
+  renderCustomEvents();
+  renderSpotInvestments();
+  calculate(shouldSave);
+}
+
+function getChildEducationCost(child, childAge) {
+  if (childAge < 0 || childAge > 22) return 0;
+  const course = child.course;
+  if (childAge <= 2) return 30; // 保育園
+  if (childAge <= 5) return 15; // 幼保無償化考慮
+  if (childAge <= 11) return course === 'all_private' ? 160 : 35; // 小学校
+  if (childAge <= 14) return course === 'all_private' ? 150 : 50; // 中学校
+  if (childAge <= 17) return course === 'all_private' ? 110 : 55; // 高校
+  if (childAge <= 21) {
+    if (course === 'all_public') return 80;
+    if (course === 'public_univ_private_bun') return 140;
+    if (course === 'public_univ_private_ri') return 180;
+    if (course === 'all_private') return 190;
+  }
+  return 30;
+}
+
+function getChildAllowance(childAge, childIndex) {
+  if (childAge < 0 || childAge > 18) return 0;
+  if (childIndex >= 2) return 36; // 第3子加算 (月3万)
+  if (childAge <= 2) return 18;  // 0~2歳 (月1.5万)
+  return 12; // 3歳~高校生 (月1万)
+}
+
+function calculateLoanPaymentDetails(principal, annualRatePct, years, bonusRatioPct = 0) {
+  if (principal <= 0 || years <= 0) {
+    return {
+      monthlyPayment: 0,
+      bonusPaymentPerTime: 0,
+      monthlyAnnualTotal: 0,
+      bonusAnnualTotal: 0,
+      annualTotal: 0
+    };
+  }
+
+  const bonusRatio = Math.max(0, Math.min(0.5, (bonusRatioPct || 0) / 100));
+  const monthlyPrincipal = principal * (1 - bonusRatio);
+  const bonusPrincipal = principal * bonusRatio;
+
+  // Monthly part: 12 times a year
+  let monthlyPayment = 0;
+  if (monthlyPrincipal > 0) {
+    const rm = (annualRatePct / 100) / 12;
+    const nm = years * 12;
+    if (rm === 0) {
+      monthlyPayment = (monthlyPrincipal * 10000) / nm;
+    } else {
+      monthlyPayment = monthlyPrincipal * 10000 * (rm * Math.pow(1 + rm, nm)) / (Math.pow(1 + rm, nm) - 1);
+    }
+  }
+
+  // Bonus part: 2 times a year (semi-annual)
+  let bonusPaymentPerTime = 0;
+  if (bonusPrincipal > 0) {
+    const rb = (annualRatePct / 100) / 2;
+    const nb = years * 2;
+    if (rb === 0) {
+      bonusPaymentPerTime = (bonusPrincipal * 10000) / nb;
+    } else {
+      bonusPaymentPerTime = bonusPrincipal * 10000 * (rb * Math.pow(1 + rb, nb)) / (Math.pow(1 + rb, nb) - 1);
+    }
+  }
+
+  const monthlyAnnualTotal = (monthlyPayment * 12) / 10000;
+  const bonusAnnualTotal = (bonusPaymentPerTime * 2) / 10000;
+  const annualTotal = monthlyAnnualTotal + bonusAnnualTotal;
+
+  return {
+    monthlyPayment: monthlyPayment / 10000,
+    bonusPaymentPerTime: bonusPaymentPerTime / 10000,
+    monthlyAnnualTotal,
+    bonusAnnualTotal,
+    annualTotal
+  };
+}
+
+function calculateLoanAnnualPayment(principal, annualRatePct, years, bonusRatioPct = 0) {
+  return calculateLoanPaymentDetails(principal, annualRatePct, years, bonusRatioPct).annualTotal;
+}
+
+function getMortgageRemainingBalance(principal, annualRatePct, years, yearIndex) {
+  if (principal <= 0 || years <= 0 || yearIndex <= 0) return 0;
+  if (yearIndex >= years) return 0;
+
+  const r = (annualRatePct / 100);
+  const n = years * 12;
+  const m = yearIndex * 12;
+
+  if (r === 0) {
+    return Math.max(0, principal * (1 - m / n));
+  }
+
+  const rm = r / 12;
+  const factorN = Math.pow(1 + rm, n);
+  const factorM = Math.pow(1 + rm, m);
+  const remaining = principal * (factorN - factorM) / (factorN - 1);
+  return Math.max(0, remaining);
+}
+
+function getSpouseDeduction(selfGrossAnnual, spouseGrossAnnual) {
+  if (selfGrossAnnual > 1220) return { it: 0, rt: 0 };
+  if (!spouseGrossAnnual || spouseGrossAnnual <= 103) {
+    return { it: 38, rt: 33 };
+  }
+  if (spouseGrossAnnual <= 150) {
+    return { it: 38, rt: 33 };
+  }
+  if (spouseGrossAnnual <= 160) return { it: 36, rt: 33 };
+  if (spouseGrossAnnual <= 167) return { it: 31, rt: 31 };
+  if (spouseGrossAnnual <= 176) return { it: 26, rt: 26 };
+  if (spouseGrossAnnual <= 185) return { it: 21, rt: 21 };
+  if (spouseGrossAnnual <= 194) return { it: 16, rt: 16 };
+  if (spouseGrossAnnual <= 201.6) return { it: 6, rt: 6 };
+  return { it: 0, rt: 0 };
+}
+
+function getDependentDeduction(children, age) {
+  let it = 0;
+  let rt = 0;
+  if (!children || !Array.isArray(children)) return { it, rt };
+  children.forEach(c => {
+    const cAge = age - c.birthAge;
+    if (cAge >= 16 && cAge <= 18) {
+      it += 38;
+      rt += 33;
+    } else if (cAge >= 19 && cAge <= 22) {
+      it += 63;
+      rt += 45;
+    }
+  });
+  return { it, rt };
+}
+
+function calculateGrossToNet(grossAnnual, age = 30, deductions = {}) {
+  if (!grossAnnual || grossAnnual <= 0) {
+    return { gross: 0, social: 0, incomeTax: 0, residentTax: 0, net: 0, netRatio: 0, taxCreditTotal: 0, furusatoBenefit: 0 };
+  }
+  const g = grossAnnual * 10000; // in yen
+
+  // 1. Social Insurance
+  const isNursing = (age >= 40 && age < 65);
+  const healthRate = 0.0499;
+  const nursingRate = isNursing ? 0.008 : 0;
+  const empRate = 0.006;
+  const pensionRate = 0.0915;
+
+  const cappedPensionBase = Math.min(g, 12500000);
+  const cappedHealthBase = Math.min(g, 16680000);
+
+  const healthIns = cappedHealthBase * healthRate;
+  const nursingIns = cappedHealthBase * nursingRate;
+  const pensionIns = cappedPensionBase * pensionRate;
+  const empIns = g * empRate;
+  const totalSocial = healthIns + nursingIns + pensionIns + empIns;
+
+  // 2. Employment Income Deduction (給与所得控除)
+  let employmentDeduction = 0;
+  if (g <= 1625000) {
+    employmentDeduction = 550000;
+  } else if (g <= 1800000) {
+    employmentDeduction = g * 0.40 - 100000;
+  } else if (g <= 3600000) {
+    employmentDeduction = g * 0.30 + 80000;
+  } else if (g <= 6600000) {
+    employmentDeduction = g * 0.20 + 440000;
+  } else if (g <= 8500000) {
+    employmentDeduction = g * 0.10 + 1100000;
+  } else {
+    employmentDeduction = 1950000;
+  }
+  const employmentIncome = Math.max(0, g - employmentDeduction);
+
+  // 3. Various Deductions (各種控除) in yen
+  const spouseDeductionIT = (deductions.spouseDeductionIT || 0) * 10000;
+  const spouseDeductionRT = (deductions.spouseDeductionRT || 0) * 10000;
+
+  const dependentDeductionIT = (deductions.dependentDeductionIT || 0) * 10000;
+  const dependentDeductionRT = (deductions.dependentDeductionRT || 0) * 10000;
+
+  const idecoAnnualYen = (deductions.idecoAnnual || 0) * 10000;
+  const lifeInsITYen = (deductions.lifeInsuranceIT || 0) * 10000;
+  const lifeInsRTYen = (deductions.lifeInsuranceRT || 0) * 10000;
+
+  // Basic deductions
+  const basicDeductionIT = g <= 24000000 ? 480000 : 0;
+  const basicDeductionRT = g <= 24000000 ? 430000 : 0;
+
+  // 4. Taxable Income for Income Tax
+  const totalDeductionsIT = totalSocial + basicDeductionIT + spouseDeductionIT + dependentDeductionIT + idecoAnnualYen + lifeInsITYen;
+  const taxableIncomeIT = Math.max(0, Math.floor((employmentIncome - totalDeductionsIT) / 1000) * 1000);
+
+  let baseTax = 0;
+  if (taxableIncomeIT <= 1950000) {
+    baseTax = taxableIncomeIT * 0.05;
+  } else if (taxableIncomeIT <= 3300000) {
+    baseTax = taxableIncomeIT * 0.10 - 97500;
+  } else if (taxableIncomeIT <= 6950000) {
+    baseTax = taxableIncomeIT * 0.20 - 427500;
+  } else if (taxableIncomeIT <= 9000000) {
+    baseTax = taxableIncomeIT * 0.23 - 636000;
+  } else if (taxableIncomeIT <= 18000000) {
+    baseTax = taxableIncomeIT * 0.33 - 1536000;
+  } else if (taxableIncomeIT <= 40000000) {
+    baseTax = taxableIncomeIT * 0.40 - 2796000;
+  } else {
+    baseTax = taxableIncomeIT * 0.45 - 4796000;
+  }
+  baseTax = Math.max(0, baseTax);
+  let incomeTax = baseTax * 1.021;
+
+  // 5. Resident Tax
+  const totalDeductionsRT = totalSocial + basicDeductionRT + spouseDeductionRT + dependentDeductionRT + idecoAnnualYen + lifeInsRTYen;
+  const taxableIncomeRT = Math.max(0, Math.floor((employmentIncome - totalDeductionsRT) / 1000) * 1000);
+  let residentTaxIncomePart = taxableIncomeRT * 0.10;
+  const residentTaxPerCapita = 5000;
+
+  // 6. Tax Credits (税額控除: 住宅ローン控除)
+  let housingLoanCreditYen = (deductions.housingLoanCredit || 0) * 10000;
+  let taxCreditUsed = 0;
+
+  if (housingLoanCreditYen > 0) {
+    const itCredit = Math.min(incomeTax, housingLoanCreditYen);
+    incomeTax -= itCredit;
+    housingLoanCreditYen -= itCredit;
+    taxCreditUsed += itCredit;
+
+    if (housingLoanCreditYen > 0) {
+      const rtCreditCap = Math.min(taxableIncomeRT * 0.05, 97500);
+      const rtCredit = Math.min(housingLoanCreditYen, rtCreditCap, residentTaxIncomePart);
+      residentTaxIncomePart -= rtCredit;
+      taxCreditUsed += rtCredit;
+    }
+  }
+
+  // Furusato Nozei special credit from Resident Tax
+  const furusatoAnnual = deductions.furusatoAnnual || 0;
+  let furusatoBenefitYen = 0;
+  if (furusatoAnnual > 0.2) {
+    const furusatoNetYen = (furusatoAnnual - 0.2) * 10000;
+    const furusatoSpecialCredit = Math.min(furusatoNetYen, residentTaxIncomePart * 0.20);
+    residentTaxIncomePart = Math.max(0, residentTaxIncomePart - furusatoSpecialCredit);
+    furusatoBenefitYen = furusatoSpecialCredit;
+  }
+
+  const residentTax = taxableIncomeRT > 0 ? (residentTaxIncomePart + residentTaxPerCapita) : 0;
+  const furusatoSelfBurdenYen = furusatoAnnual > 0 ? Math.min(2000, furusatoAnnual * 10000) : 0;
+
+  const netYen = g - totalSocial - incomeTax - residentTax - furusatoSelfBurdenYen;
+
+  return {
+    gross: grossAnnual,
+    social: totalSocial / 10000,
+    incomeTax: incomeTax / 10000,
+    residentTax: residentTax / 10000,
+    net: netYen / 10000,
+    netRatio: (netYen / g) * 100,
+    taxCreditTotal: taxCreditUsed / 10000,
+    furusatoBenefit: furusatoBenefitYen / 10000
+  };
+}
+
+function calculate(shouldAutoSave = true) {
+  const currentYear = 2026;
+  const baseAge = parseInt(document.getElementById('base_age').value, 10) || 28;
+  const endAge = parseInt(document.getElementById('base_end_age').value, 10) || 95;
+
+  const selfCalcMode = document.getElementById('income_self_calc_mode') ? document.getElementById('income_self_calc_mode').value : 'gross';
+  const selfGrossIncome = parseFloat(document.getElementById('income_self_gross_annual').value) || 0;
+  const selfGrossPeakAmount = parseFloat(document.getElementById('income_self_gross_peak_amount').value) || selfGrossIncome;
+  const selfRehireGrossIncome = parseFloat(document.getElementById('rehire_self_gross_income').value) || 0;
+
+  const selfNetDirect = parseFloat(document.getElementById('income_self_annual').value) || 0;
+  const selfNetPeakDirect = parseFloat(document.getElementById('income_self_peak_amount').value) || selfNetDirect;
+  const selfRehireNetDirect = parseFloat(document.getElementById('rehire_self_income').value) || 0;
+
+  const selfBonusRatio = parseFloat(document.getElementById('income_self_bonus_ratio').value) || 0;
+  const selfPeakAge = parseInt(document.getElementById('income_self_peak_age').value, 10) || 50;
+  const selfRetireAge = parseInt(document.getElementById('retire_self_age').value, 10) || 60;
+  const selfBonus = parseFloat(document.getElementById('retire_self_bonus').value) || 0;
+  const selfRehireEnabled = document.getElementById('rehire_self_enabled').checked;
+  const selfRehireEndAge = parseInt(document.getElementById('rehire_self_end_age').value, 10) || 65;
+
+  // Deduction inputs
+  const furusatoAnnual = parseFloat(document.getElementById('deduction_furusato_amount') ? document.getElementById('deduction_furusato_amount').value : 0) || 0;
+  const idecoMonthly = parseFloat(document.getElementById('deduction_ideco_monthly') ? document.getElementById('deduction_ideco_monthly').value : 0) || 0;
+  const lifeInsuranceDeduction = parseFloat(document.getElementById('deduction_life_insurance') ? document.getElementById('deduction_life_insurance').value : 0) || 0;
+  const mortgageDeductionEnabled = document.getElementById('mortgage_deduction_enabled') ? document.getElementById('mortgage_deduction_enabled').checked : true;
+  const mortgageDeductionLimit = parseFloat(document.getElementById('mortgage_deduction_limit') ? document.getElementById('mortgage_deduction_limit').value : 4000) || 4000;
+
+  // Inflation & living expense inputs
+  const inflationRate = (parseFloat(document.getElementById('inflation_rate').value) || 0) / 100;
+  const livingMonthly = parseFloat(document.getElementById('expense_living_monthly').value) || 18;
+  document.getElementById('living_annual_preview').textContent = Math.round(livingMonthly * 12);
+  const livingRetireRatio = (parseFloat(document.getElementById('expense_living_retire_ratio').value) || 75) / 100;
+  const marriedRatio = (parseFloat(document.getElementById('expense_married_ratio').value) || 150) / 100;
+
+  // Housing inputs
+  const housingType = document.getElementById('housing_type').value;
+  const rentMonthly = parseFloat(document.getElementById('rent_monthly').value) || 0;
+  const rentUpdateAnnual = parseFloat(document.getElementById('rent_update_annual').value) || 0;
+  const buyAge = parseInt(document.getElementById('buy_age').value, 10) || 33;
+  const buyDownPayment = parseFloat(document.getElementById('buy_down_payment').value) || 0;
+  const buyLoanAmount = parseFloat(document.getElementById('buy_loan_amount').value) || 0;
+  const buyLoanRate = parseFloat(document.getElementById('buy_loan_rate').value) || 1.0;
+  const buyLoanYears = parseInt(document.getElementById('buy_loan_years').value, 10) || 35;
+  const buyLoanBonusRatio = parseFloat(document.getElementById('buy_loan_bonus_ratio').value) || 0;
+  const buyMaintenanceAnnual = parseFloat(document.getElementById('buy_maintenance_annual').value) || 0;
+
+  // Spouse inputs
+  const spouseEnabled = document.getElementById('spouse_enabled').checked;
+  const marriageAge = parseInt(document.getElementById('marriage_age').value, 10) || 30;
+  const marriageCost = parseFloat(document.getElementById('marriage_cost').value) || 0;
+  const spouseCurrentAge = parseInt(document.getElementById('spouse_age').value, 10) || 28;
+  const spouseAgeDiff = spouseCurrentAge - baseAge;
+
+  const spouseCalcMode = document.getElementById('spouse_income_calc_mode') ? document.getElementById('spouse_income_calc_mode').value : 'gross';
+  const spouseGrossIncome = parseFloat(document.getElementById('spouse_gross_income').value) || 0;
+  let spouseIncome = parseFloat(document.getElementById('spouse_income').value) || 0;
+  let currentSpouseNetDetails = null;
+  if (spouseCalcMode === 'gross') {
+    currentSpouseNetDetails = calculateGrossToNet(spouseGrossIncome, spouseCurrentAge);
+    spouseIncome = currentSpouseNetDetails.net;
+  }
+
+  const spouseBonusRatio = parseFloat(document.getElementById('spouse_bonus_ratio').value) || 0;
+  const spouseRaise = parseFloat(document.getElementById('spouse_raise').value) || 0;
+  const spouseRetireAge = parseInt(document.getElementById('spouse_retire_age').value, 10) || 60;
+  const spouseRetireBonus = parseFloat(document.getElementById('spouse_retire_bonus').value) || 0;
+  const spousePensionAnnual = parseFloat(document.getElementById('spouse_pension_annual').value) || 0;
+
+  // Deductions for base age preview
+  const isMarriedAtBase = spouseEnabled && (baseAge >= marriageAge);
+  const spouseGrossAtBase = isMarriedAtBase ? (spouseCalcMode === 'gross' ? spouseGrossIncome : spouseIncome) : 0;
+  const baseSpouseDed = isMarriedAtBase ? getSpouseDeduction(selfGrossIncome, spouseGrossAtBase) : { it: 0, rt: 0 };
+  const baseDepDed = getDependentDeduction(childrenData, baseAge);
+  let baseHousingCredit = 0;
+  if (housingType === 'buy' && mortgageDeductionEnabled && buyLoanYears > 0) {
+    const loanIdx = baseAge - buyAge;
+    if (loanIdx >= 0 && loanIdx < 13) {
+      const remBal = getMortgageRemainingBalance(buyLoanAmount, buyLoanRate, buyLoanYears, loanIdx + 1);
+      baseHousingCredit = Math.min(remBal, mortgageDeductionLimit) * 0.007;
+    }
+  }
+
+  const baseDeductions = {
+    spouseDeductionIT: baseSpouseDed.it,
+    spouseDeductionRT: baseSpouseDed.rt,
+    dependentDeductionIT: baseDepDed.it,
+    dependentDeductionRT: baseDepDed.rt,
+    idecoAnnual: idecoMonthly * 12,
+    lifeInsuranceDeduction: lifeInsuranceDeduction,
+    housingLoanCredit: baseHousingCredit,
+    furusatoAnnual: furusatoAnnual
+  };
+
+  // Deductions for peak age preview
+  const isMarriedAtPeak = spouseEnabled && (selfPeakAge >= marriageAge);
+  const spouseGrossAtPeak = isMarriedAtPeak ? (
+    (spouseCalcMode === 'gross' ? spouseGrossIncome : spouseIncome) * Math.pow(1 + (spouseRaise / 100), Math.max(0, selfPeakAge - baseAge))
+  ) : 0;
+  const peakSpouseDed = isMarriedAtPeak ? getSpouseDeduction(selfGrossPeakAmount, spouseGrossAtPeak) : { it: 0, rt: 0 };
+  const peakDepDed = getDependentDeduction(childrenData, selfPeakAge);
+  let peakHousingCredit = 0;
+  if (housingType === 'buy' && mortgageDeductionEnabled && buyLoanYears > 0) {
+    const loanIdx = selfPeakAge - buyAge;
+    if (loanIdx >= 0 && loanIdx < 13) {
+      const remBal = getMortgageRemainingBalance(buyLoanAmount, buyLoanRate, buyLoanYears, loanIdx + 1);
+      peakHousingCredit = Math.min(remBal, mortgageDeductionLimit) * 0.007;
+    }
+  }
+
+  const peakDeductions = {
+    spouseDeductionIT: peakSpouseDed.it,
+    spouseDeductionRT: peakSpouseDed.rt,
+    dependentDeductionIT: peakDepDed.it,
+    dependentDeductionRT: peakDepDed.rt,
+    idecoAnnual: (selfPeakAge < selfRetireAge) ? (idecoMonthly * 12) : 0,
+    lifeInsuranceDeduction: lifeInsuranceDeduction,
+    housingLoanCredit: peakHousingCredit,
+    furusatoAnnual: (selfPeakAge < selfRetireAge) ? furusatoAnnual : 0
+  };
+
+  let currentSelfNetDetails = null;
+  let peakSelfNetDetails = null;
+
+  let selfIncome = selfNetDirect;
+  let selfPeakAmount = selfNetPeakDirect;
+  let selfRehireIncome = selfRehireNetDirect;
+
+  if (selfCalcMode === 'gross') {
+    currentSelfNetDetails = calculateGrossToNet(selfGrossIncome, baseAge, baseDeductions);
+    peakSelfNetDetails = calculateGrossToNet(selfGrossPeakAmount, selfPeakAge, peakDeductions);
+    const rehireNetDetails = calculateGrossToNet(selfRehireGrossIncome, Math.max(60, selfRetireAge));
+    selfIncome = currentSelfNetDetails.net;
+    selfPeakAmount = peakSelfNetDetails.net;
+    selfRehireIncome = rehireNetDetails.net;
+  }
+
+  const currentSelfMonthly = (selfIncome * (1 - selfBonusRatio / 100)) / 12;
+  const currentSelfBonusAnnual = selfIncome * (selfBonusRatio / 100);
+  const currentSelfBonusPerTime = currentSelfBonusAnnual / 2;
+
+  const peakSelfMonthly = (selfPeakAmount * (1 - selfBonusRatio / 100)) / 12;
+  const peakSelfBonusAnnual = selfPeakAmount * (selfBonusRatio / 100);
+  const peakSelfBonusPerTime = peakSelfBonusAnnual / 2;
+
+  const selfIncomePreviewEl = document.getElementById('self_income_preview');
+  if (selfIncomePreviewEl) {
+    const span = selfPeakAge - baseAge;
+    let desc = '';
+    if (selfCalcMode === 'gross') {
+      const curNet = currentSelfNetDetails.net;
+      const curGross = selfGrossIncome;
+      const curSocial = currentSelfNetDetails.social;
+      const curIT = currentSelfNetDetails.incomeTax;
+      const curRT = currentSelfNetDetails.residentTax;
+      const curRatio = currentSelfNetDetails.netRatio.toFixed(0);
+
+      const peakNet = peakSelfNetDetails.net;
+      const peakGross = selfGrossPeakAmount;
+      const peakSocial = peakSelfNetDetails.social;
+      const peakIT = peakSelfNetDetails.incomeTax;
+      const peakRT = peakSelfNetDetails.residentTax;
+      const peakRatio = peakSelfNetDetails.netRatio.toFixed(0);
+
+      const curMonthly = (curNet * (1 - selfBonusRatio / 100)) / 12;
+      const curBonus = (curNet * (selfBonusRatio / 100)) / 2;
+      const peakMonthly = (peakNet * (1 - selfBonusRatio / 100)) / 12;
+      const peakBonus = (peakNet * (selfBonusRatio / 100)) / 2;
+
+      const annualStep = span > 0 ? (selfGrossPeakAmount - selfGrossIncome) / span : 0;
+      const stepSign = annualStep >= 0 ? '+' : '';
+      const maintainYears = Math.max(0, selfRetireAge - selfPeakAge);
+
+      const appliedTagsBase = [];
+      if (furusatoAnnual > 0) appliedTagsBase.push(`ふるさと納税${furusatoAnnual}万`);
+      if (idecoMonthly > 0) appliedTagsBase.push(`iDeCo月${idecoMonthly}万`);
+      if (lifeInsuranceDeduction > 0) appliedTagsBase.push(`生命保険料控除`);
+      if (baseSpouseDed.it > 0) appliedTagsBase.push(`配偶者控除`);
+      if (baseDepDed.it > 0) appliedTagsBase.push(`扶養控除`);
+      if (baseHousingCredit > 0) appliedTagsBase.push(`住宅ローン控除(年約${baseHousingCredit.toFixed(1)}万)`);
+      const appliedTextBase = appliedTagsBase.length > 0 ? appliedTagsBase.join('・') : '基礎控除のみ';
+
+      const appliedTagsPeak = [];
+      if (furusatoAnnual > 0) appliedTagsPeak.push(`ふるさと納税${furusatoAnnual}万`);
+      if (idecoMonthly > 0 && selfPeakAge < selfRetireAge) appliedTagsPeak.push(`iDeCo月${idecoMonthly}万`);
+      if (lifeInsuranceDeduction > 0) appliedTagsPeak.push(`生命保険料控除`);
+      if (peakSpouseDed.it > 0) appliedTagsPeak.push(`配偶者控除`);
+      if (peakDepDed.it > 0) appliedTagsPeak.push(`扶養控除`);
+      if (peakHousingCredit > 0) appliedTagsPeak.push(`住宅ローン控除(年約${peakHousingCredit.toFixed(1)}万)`);
+      const appliedTextPeak = appliedTagsPeak.length > 0 ? appliedTagsPeak.join('・') : '基礎控除のみ';
+
+      desc = `
+        <div style="margin-bottom:8px; line-height:1.5;">
+          <strong>${baseAge}歳</strong>(額面${curGross}万)から<strong>${selfPeakAge}歳</strong>(額面${peakGross}万)まで <strong>毎年${stepSign}${annualStep.toFixed(1)}万円</strong>昇給。<br>
+          定年(<strong>${selfRetireAge}歳</strong>)までの${maintainYears}年間は<strong>最高額面${peakGross}万円</strong>を維持します。
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
+          <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:8px;">
+            <div style="font-weight:700; color:#1e40af; font-size:0.8rem; margin-bottom:4px;">📍 現在 (${baseAge}歳)</div>
+            <div style="font-size:0.75rem; color:#475569; line-height:1.5;">
+              ・額面: <strong>${curGross}</strong> 万円<br>
+              ・社保: 約 <strong>${curSocial.toFixed(1)}</strong> 万 / 所得税: 約 <strong>${curIT.toFixed(1)}</strong> 万 / 住民税: 約 <strong>${curRT.toFixed(1)}</strong> 万<br>
+              <div style="margin-top:3px; font-size:0.71rem; color:#0369a1; background:#f0f9ff; border-radius:4px; padding:2px 5px;">🎯 控除適用: ${appliedTextBase}</div>
+              <div style="margin-top:4px; padding-top:4px; border-top:1px dashed #cbd5e1; color:#0f172a;">
+                👉 <strong>手取り: 約 ${curNet.toFixed(1)} 万円</strong> (手取り率 ${curRatio}%)<br>
+                ${selfBonusRatio > 0 ? `・月給: 約 ${curMonthly.toFixed(1)}万 ＋ 賞与: 約 ${curBonus.toFixed(1)}万/回` : `・月給手取り: 約 ${(curNet/12).toFixed(1)}万/月`}
+              </div>
+            </div>
+          </div>
+          <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:8px;">
+            <div style="font-weight:700; color:#0369a1; font-size:0.8rem; margin-bottom:4px;">🏆 最高年収時 (${selfPeakAge}歳)</div>
+            <div style="font-size:0.75rem; color:#475569; line-height:1.5;">
+              ・額面: <strong>${peakGross}</strong> 万円<br>
+              ・社保: 約 <strong>${peakSocial.toFixed(1)}</strong> 万 / 所得税: 約 <strong>${peakIT.toFixed(1)}</strong> 万 / 住民税: 約 <strong>${peakRT.toFixed(1)}</strong> 万<br>
+              <div style="margin-top:3px; font-size:0.71rem; color:#0369a1; background:#f0f9ff; border-radius:4px; padding:2px 5px;">🎯 控除適用: ${appliedTextPeak}</div>
+              <div style="margin-top:4px; padding-top:4px; border-top:1px dashed #cbd5e1; color:#0f172a;">
+                👉 <strong>手取り: 約 ${peakNet.toFixed(1)} 万円</strong> (手取り率 ${peakRatio}%)<br>
+                ${selfBonusRatio > 0 ? `・月給: 約 ${peakMonthly.toFixed(1)}万 ＋ 賞与: 約 ${peakBonus.toFixed(1)}万/回` : `・月給手取り: 約 ${(peakNet/12).toFixed(1)}万/月`}
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    } else {
+      // Net mode
+      if (span > 0) {
+        const annualStep = (selfPeakAmount - selfIncome) / span;
+        const stepSign = annualStep >= 0 ? '+' : '';
+        const maintainYears = Math.max(0, selfRetireAge - selfPeakAge);
+        desc = `<strong>${baseAge}歳</strong>(${selfIncome.toFixed(0)}万円)から<strong>${selfPeakAge}歳</strong>(${selfPeakAmount.toFixed(0)}万円)まで <strong>毎年${stepSign}${annualStep.toFixed(1)}万円</strong>ずつ均等に昇給。<br>その後定年(<strong>${selfRetireAge}歳</strong>)までの${maintainYears}年間は<strong>最高年収${selfPeakAmount.toFixed(0)}万円</strong>を維持します。`;
+      } else {
+        desc = `<strong>${baseAge}歳〜定年${selfRetireAge}歳</strong>まで <strong>${selfPeakAmount.toFixed(0)}万円</strong>を維持します。`;
+      }
+
+      if (selfBonusRatio > 0) {
+        desc += `<div style="margin-top:6px; padding-top:6px; border-top:1px dashed var(--border); font-size:0.78rem; color:#475569;">
+          📌 <strong>手取り給与の内訳 (ボーナス割合: ${selfBonusRatio}%):</strong><br>
+          ・現在(${baseAge}歳): 月給手取り 約 <strong>${currentSelfMonthly.toFixed(1)}</strong> 万円/月 ＋ 賞与 約 <strong>${currentSelfBonusPerTime.toFixed(1)}</strong> 万円/回 (年2回・計 ${currentSelfBonusAnnual.toFixed(1)}万円)<br>
+          ・最高時(${selfPeakAge}歳): 月給手取り 約 <strong>${peakSelfMonthly.toFixed(1)}</strong> 万円/月 ＋ 賞与 約 <strong>${peakSelfBonusPerTime.toFixed(1)}</strong> 万円/回 (年2回・計 ${peakSelfBonusAnnual.toFixed(1)}万円)
+        </div>`;
+      } else {
+        desc += `<div style="margin-top:6px; padding-top:6px; border-top:1px dashed var(--border); font-size:0.78rem; color:#475569;">
+          📌 <strong>手取り給与の内訳 (賞与なし・12ヶ月均等):</strong><br>
+          ・現在(${baseAge}歳): 月給手取り 約 <strong>${(selfIncome / 12).toFixed(1)}</strong> 万円/月<br>
+          ・最高時(${selfPeakAge}歳): 月給手取り 約 <strong>${(selfPeakAmount / 12).toFixed(1)}</strong> 万円/月
+        </div>`;
+      }
+    }
+    selfIncomePreviewEl.innerHTML = desc;
+  }
+
+  // Housing loan preview
+  const loanDetails = calculateLoanPaymentDetails(buyLoanAmount, buyLoanRate, buyLoanYears, buyLoanBonusRatio);
+  const annualMortgage = loanDetails.annualTotal;
+
+  const previewEl = document.getElementById('loan_repay_preview');
+  if (previewEl) {
+    if (buyLoanAmount <= 0 || buyLoanYears <= 0) {
+      previewEl.innerHTML = '<span style="color:var(--text-muted);">住宅ローン借入なし (自己資金購入または賃貸)</span>';
+    } else if (buyLoanBonusRatio > 0) {
+      const span = selfPeakAge - baseAge;
+      let selfIncomeAtBuy = selfIncome;
+      if (span > 0) {
+        if (buyAge <= baseAge) selfIncomeAtBuy = selfIncome;
+        else if (buyAge >= selfPeakAge) selfIncomeAtBuy = selfPeakAmount;
+        else selfIncomeAtBuy = selfIncome + (selfPeakAmount - selfIncome) * (buyAge - baseAge) / span;
+      } else {
+        selfIncomeAtBuy = selfPeakAmount;
+      }
+      const selfBonusAtBuyPerTime = (selfIncomeAtBuy * (selfBonusRatio / 100)) / 2;
+      let burdenNote = '';
+      if (selfBonusAtBuyPerTime > 0) {
+        const burdenPct = (loanDetails.bonusPaymentPerTime / selfBonusAtBuyPerTime) * 100;
+        const burdenStatus = burdenPct > 40 ? '⚠️ ボーナス返済比率が高め（一般に20〜30%以内が安全圏）' : '✅ 安全圏内の返済比率';
+        burdenNote = `<div style="margin-top:4px; font-size:0.76rem; color:#475569;">💡 購入時(${buyAge}歳)本人賞与手取り(約${selfBonusAtBuyPerTime.toFixed(1)}万円/回)に対する返済比率: <strong>${burdenPct.toFixed(1)}%</strong> (${burdenStatus})</div>`;
+      }
+
+      previewEl.innerHTML = `
+        <div>・<strong>毎月返済額:</strong> 約 <strong>${loanDetails.monthlyPayment.toFixed(1)}</strong> 万円/月 (年間 ${loanDetails.monthlyAnnualTotal.toFixed(1)} 万円)</div>
+        <div>・<strong>ボーナス時加算額:</strong> 約 <strong>${loanDetails.bonusPaymentPerTime.toFixed(1)}</strong> 万円/回 (年2回・年間計 ${loanDetails.bonusAnnualTotal.toFixed(1)} 万円)</div>
+        <div>・<strong>年間返済総額:</strong> 約 <strong>${annualMortgage.toFixed(1)}</strong> 万円/年 (返済期間: ${buyLoanYears}年間)</div>
+        ${burdenNote}
+      `;
+    } else {
+      previewEl.innerHTML = `
+        <div>・<strong>毎月返済額:</strong> 約 <strong>${(annualMortgage / 12).toFixed(1)}</strong> 万円/月 (ボーナス返済なし)</div>
+        <div>・<strong>年間返済総額:</strong> 約 <strong>${annualMortgage.toFixed(1)}</strong> 万円/年 (返済期間: ${buyLoanYears}年間)</div>
+      `;
+    }
+  }
+
+  // Car inputs
+  const carEnabled = document.getElementById('car_enabled').checked;
+  const carFirstAge = parseInt(document.getElementById('car_first_age').value, 10) || 30;
+  const carCycle = parseInt(document.getElementById('car_cycle').value, 10) || 8;
+  const carPrice = parseFloat(document.getElementById('car_price').value) || 0;
+  const carMaintenance = parseFloat(document.getElementById('car_maintenance_annual').value) || 0;
+  const carEndAge = parseInt(document.getElementById('car_end_age').value, 10) || 75;
+
+  // Spouse preview
+  const spousePreviewEl = document.getElementById('spouse_income_preview');
+  if (spousePreviewEl) {
+    if (spouseCalcMode === 'gross') {
+      if (spouseGrossIncome > 0) {
+        const spNet = currentSpouseNetDetails.net;
+        const spRatio = currentSpouseNetDetails.netRatio.toFixed(0);
+        const spMonthly = (spNet * (1 - spouseBonusRatio / 100)) / 12;
+        const spBonusAnnual = spNet * (spouseBonusRatio / 100);
+        const spBonusPerTime = spBonusAnnual / 2;
+
+        spousePreviewEl.innerHTML = `
+          <div style="font-size:0.78rem; color:#475569; line-height:1.5;">
+            ・配偶者額面: <strong>${spouseGrossIncome}</strong> 万円 (社保 約${currentSpouseNetDetails.social.toFixed(1)}万 / 所得税 約${currentSpouseNetDetails.incomeTax.toFixed(1)}万 / 住民税 約${currentSpouseNetDetails.residentTax.toFixed(1)}万)<br>
+            ・👉 <strong>手取り年収: 約 ${spNet.toFixed(1)} 万円</strong> (手取り率 ${spRatio}%)<br>
+            ${spouseBonusRatio > 0 ? `・月給手取り: 約 <strong>${spMonthly.toFixed(1)}</strong> 万円/月 ＋ 賞与: 約 <strong>${spBonusPerTime.toFixed(1)}</strong> 万円/回 (年2回・計 ${spBonusAnnual.toFixed(1)}万)` : `・月給手取り: 約 <strong>${(spNet / 12).toFixed(1)}</strong> 万円/月`}
+          </div>
+        `;
+      } else {
+        spousePreviewEl.innerHTML = `給与収入なし（専業主婦/主夫想定）`;
+      }
+    } else {
+      if (spouseIncome > 0) {
+        const spouseMonthly = (spouseIncome * (1 - spouseBonusRatio / 100)) / 12;
+        const spouseBonusAnnual = spouseIncome * (spouseBonusRatio / 100);
+        const spouseBonusPerTime = spouseBonusAnnual / 2;
+        if (spouseBonusRatio > 0) {
+          spousePreviewEl.innerHTML = `手取り年収 ${spouseIncome.toFixed(0)}万円 (ボーナス割合 ${spouseBonusRatio}%):<br>・月給手取り: 約 <strong>${spouseMonthly.toFixed(1)}</strong> 万円/月<br>・賞与手取り: 約 <strong>${spouseBonusPerTime.toFixed(1)}</strong> 万円/回 (年2回・計 ${spouseBonusAnnual.toFixed(1)}万円)`;
+        } else {
+          spousePreviewEl.innerHTML = `手取り年収 ${spouseIncome.toFixed(0)}万円 (賞与なし):<br>・月給手取り: 約 <strong>${(spouseIncome / 12).toFixed(1)}</strong> 万円/月`;
+        }
+      } else {
+        spousePreviewEl.innerHTML = `給与収入なし（専業主婦/主夫想定）`;
+      }
+    }
+  }
+
+  const childAllowanceEnabled = document.getElementById('child_allowance_enabled').checked;
+
+  const nisaMonthly = parseFloat(document.getElementById('nisa_monthly_amount').value) || 0;
+  const nisaStartAge = parseInt(document.getElementById('nisa_start_age').value, 10) || baseAge;
+  const nisaEndAge = parseInt(document.getElementById('nisa_end_age').value, 10) || 60;
+  const nisaReturnRate = (parseFloat(document.getElementById('nisa_return_rate').value) || 0) / 100;
+
+  const taxableMonthly = parseFloat(document.getElementById('taxable_monthly_amount').value) || 0;
+  const taxableStartAge = parseInt(document.getElementById('taxable_start_age').value, 10) || baseAge;
+  const taxableEndAge = parseInt(document.getElementById('taxable_end_age').value, 10) || 60;
+  const taxableReturnRate = (parseFloat(document.getElementById('taxable_return_rate').value) || 0) / 100;
+  const nisaOverflowToTaxable = document.getElementById('nisa_overflow_to_taxable').checked;
+
+  const stockPlanEnabled = document.getElementById('stock_plan_enabled').checked;
+  const stockMonthly = parseFloat(document.getElementById('stock_monthly_amount').value) || 0;
+  const stockSubsidyRate = parseFloat(document.getElementById('stock_subsidy_rate').value) || 0;
+  const stockReturnRate = (parseFloat(document.getElementById('stock_return_rate').value) || 0) / 100;
+  const stockEndAge = parseInt(document.getElementById('stock_end_age').value, 10) || selfRetireAge;
+  const stockRetireAction = document.getElementById('stock_retire_action').value;
+
+  const cashInterestRate = (parseFloat(document.getElementById('cash_interest_rate').value) || 0) / 100;
+  const drawdownOrder = document.getElementById('drawdown_order').value;
+
+  const cashCapEnabled = document.getElementById('cash_cap_enabled').checked;
+  const cashCapAmount = parseFloat(document.getElementById('cash_cap_amount').value) || 300;
+  const cashCapTarget = document.getElementById('cash_cap_target').value;
+
+  const cashCapPreviewEl = document.getElementById('cash_cap_preview');
+  if (cashCapPreviewEl) {
+    if (cashCapEnabled) {
+      const livingCost = (spouseEnabled && baseAge >= marriageAge) ? (livingMonthly * marriedRatio) : livingMonthly;
+      const monthsEquiv = livingCost > 0 ? (cashCapAmount / livingCost).toFixed(1) : 0;
+      cashCapPreviewEl.innerHTML = `
+        💡 <strong>生活防衛資金の目安:</strong> 基本生活費（月${livingCost.toFixed(1)}万円）の約 <strong>${monthsEquiv}ヶ月分</strong> に相当します。<br>
+        収支黒字や退職金等で現預金が <strong>${cashCapAmount}万円</strong> を超過した場合、余剰分はすべて自動的に <strong>${cashCapTarget === 'nisa_first' ? '新NISA（枠上限超過分は特定口座）' : '特定口座'}</strong> へ投資されます。
+      `;
+    } else {
+      cashCapPreviewEl.innerHTML = '';
+    }
+  }
+
+  // Investment UI Previews
+  const nisaAnnual = Math.min(360, nisaMonthly * 12);
+  const yearsToCap = nisaAnnual > 0 ? (1800 / nisaAnnual).toFixed(1) : 0;
+  const nisaPreviewEl = document.getElementById('nisa_status_preview');
+  if (nisaPreviewEl) {
+    nisaPreviewEl.innerHTML = `年間積立: <strong>${nisaAnnual}万円</strong> (年枠360万以内)<br>` +
+      `生涯枠1,800万円到達: 約<strong>${yearsToCap}年</strong> (${nisaStartAge + Math.floor(yearsToCap)}歳頃)<br>` +
+      `<span style="color:#16a34a; font-weight:700;">✓ 運用益・分配金 完全非課税 (税率0%)</span>`;
+  }
+
+  const subsidyMonthly = stockMonthly * (stockSubsidyRate / 100);
+  const totalYears = Math.max(0, stockEndAge - baseAge);
+  const totalSubsidyReceived = subsidyMonthly * 12 * totalYears;
+  const stockPreviewEl = document.getElementById('stock_subsidy_preview');
+  if (stockPreviewEl) {
+    stockPreviewEl.innerHTML = `会社補助: 毎月+<strong>${(subsidyMonthly * 10000).toLocaleString()}円</strong> (年+${(subsidyMonthly * 12).toFixed(1)}万円)<br>` +
+      `定年までの会社補助総額: 約<strong>${Math.round(totalSubsidyReceived).toLocaleString()}万円</strong>の上乗せ獲得`;
+  }
+
+  const pensionStartAge = parseInt(document.getElementById('pension_start_age').value, 10) || 65;
+  const pensionAnnualAmount = parseFloat(document.getElementById('pension_annual_amount').value) || 0;
+
+  simulationResults = [];
+  let peakAssets = -Infinity;
+  let peakAge = baseAge;
+  let retireAssets = 0;
+  let bankruptcyAge = null;
+
+  let simCash = parseFloat(document.getElementById('asset_cash_current').value) || 0;
+  let simNisa = parseFloat(document.getElementById('asset_nisa_current').value) || 0;
+  let nisaBook = simNisa;
+  let simTaxable = parseFloat(document.getElementById('asset_taxable_current').value) || 0;
+  let taxableBook = simTaxable;
+  let simStock = stockPlanEnabled ? (parseFloat(document.getElementById('asset_stock_current').value) || 0) : 0;
+  let stockBook = simStock;
+
+  const NISA_YEARLY_LIMIT = 360;
+  const NISA_LIFETIME_LIMIT = 1800;
+  const TAX_RATE = 0.20315;
+
+  for (let age = baseAge; age <= endAge; age++) {
+    const year = currentYear + (age - baseAge);
+    const spouseAge = age + spouseAgeDiff;
+    const isMarried = spouseEnabled && (age >= marriageAge);
+    const inflationFactor = Math.pow(1 + inflationRate, (age - baseAge));
+
+    let eventsList = [];
+
+    // Housing loan deduction calculation for this year
+    let currentHousingCredit = 0;
+    if (housingType === 'buy' && mortgageDeductionEnabled && buyLoanYears > 0) {
+      const loanIdx = age - buyAge;
+      if (loanIdx >= 0 && loanIdx < 13) {
+        const remBal = getMortgageRemainingBalance(buyLoanAmount, buyLoanRate, buyLoanYears, loanIdx + 1);
+        currentHousingCredit = Math.min(remBal, mortgageDeductionLimit) * 0.007;
+        if (loanIdx === 0) {
+          eventsList.push(`住宅ローン控除開始 (年約${(Math.round(currentHousingCredit * 10) / 10)}万控除・13年間)`);
+        } else if (loanIdx === 12) {
+          eventsList.push("住宅ローン控除終了");
+        }
+      }
+    }
+
+    // Deductions for current year
+    const spouseGrossYearForDed = isMarried ? (
+      spouseCalcMode === 'gross'
+        ? (spouseGrossIncome * Math.pow(1 + (spouseRaise / 100), (age - baseAge)))
+        : (spouseIncome * Math.pow(1 + (spouseRaise / 100), (age - baseAge)))
+    ) : 0;
+
+    let currentGrossForDed = 0;
+    if (age <= baseAge) {
+      currentGrossForDed = selfGrossIncome;
+    } else if (age < selfPeakAge) {
+      const span = selfPeakAge - baseAge;
+      currentGrossForDed = span > 0 ? (selfGrossIncome + (selfGrossPeakAmount - selfGrossIncome) * ((age - baseAge) / span)) : selfGrossPeakAmount;
+    } else {
+      currentGrossForDed = selfGrossPeakAmount;
+    }
+
+    const yearSpouseDed = isMarried ? getSpouseDeduction(currentGrossForDed, spouseGrossYearForDed) : { it: 0, rt: 0 };
+    const yearDepDed = getDependentDeduction(childrenData, age);
+
+    const yearDeductions = {
+      spouseDeductionIT: yearSpouseDed.it,
+      spouseDeductionRT: yearSpouseDed.rt,
+      dependentDeductionIT: yearDepDed.it,
+      dependentDeductionRT: yearDepDed.rt,
+      idecoAnnual: (age < selfRetireAge) ? (idecoMonthly * 12) : 0,
+      lifeInsuranceDeduction: lifeInsuranceDeduction,
+      housingLoanCredit: currentHousingCredit,
+      furusatoAnnual: (age < selfRetireAge) ? furusatoAnnual : 0
+    };
+
+    // --- 1. INCOME ---
+    let incomeSelfYear = 0;
+    if (age < selfRetireAge) {
+      if (selfCalcMode === 'gross') {
+        const netDetails = calculateGrossToNet(currentGrossForDed, age, yearDeductions);
+        incomeSelfYear = netDetails.net;
+      } else {
+        if (age <= baseAge) {
+          incomeSelfYear = selfIncome;
+        } else if (age < selfPeakAge) {
+          const span = selfPeakAge - baseAge;
+          incomeSelfYear = span > 0 ? (selfIncome + (selfPeakAmount - selfIncome) * ((age - baseAge) / span)) : selfPeakAmount;
+        } else {
+          incomeSelfYear = selfPeakAmount;
+        }
+        if (currentHousingCredit > 0) {
+          incomeSelfYear += currentHousingCredit;
+        }
+      }
+    } else if (age === selfRetireAge) {
+      incomeSelfYear = 0;
+    } else if (selfRehireEnabled && age <= selfRehireEndAge) {
+      if (selfCalcMode === 'gross') {
+        const rehireDeductions = {
+          spouseDeductionIT: yearSpouseDed.it,
+          spouseDeductionRT: yearSpouseDed.rt,
+          dependentDeductionIT: yearDepDed.it,
+          dependentDeductionRT: yearDepDed.rt,
+          idecoAnnual: 0,
+          lifeInsuranceDeduction: lifeInsuranceDeduction,
+          housingLoanCredit: currentHousingCredit,
+          furusatoAnnual: 0
+        };
+        const netDetails = calculateGrossToNet(selfRehireGrossIncome, age, rehireDeductions);
+        incomeSelfYear = netDetails.net;
+      } else {
+        incomeSelfYear = selfRehireIncome + (currentHousingCredit > 0 ? currentHousingCredit : 0);
+      }
+    }
+
+    let incomeSpouseYear = 0;
+    if (isMarried) {
+      if (spouseAge < spouseRetireAge) {
+        const spouseRaiseFactor = Math.pow(1 + (spouseRaise / 100), (age - baseAge));
+        if (spouseCalcMode === 'gross') {
+          const grossSpouseYear = spouseGrossIncome * spouseRaiseFactor;
+          const netDetails = calculateGrossToNet(grossSpouseYear, spouseAge);
+          incomeSpouseYear = netDetails.net;
+        } else {
+          incomeSpouseYear = spouseIncome * spouseRaiseFactor;
+        }
+      }
+    }
+
+    let lumpSumIncome = 0;
+    if (age === selfRetireAge) {
+      lumpSumIncome += selfBonus;
+      eventsList.push(`本人退職金 (+${selfBonus}万)`);
+    }
+    if (isMarried && spouseAge === spouseRetireAge) {
+      lumpSumIncome += spouseRetireBonus;
+      eventsList.push(`配偶者退職金 (+${spouseRetireBonus}万)`);
+    }
+
+    let pensionYear = 0;
+    if (age >= pensionStartAge) {
+      pensionYear += pensionAnnualAmount;
+    }
+    if (isMarried && spouseAge >= 65) {
+      pensionYear += spousePensionAnnual;
+    }
+
+    let allowanceYear = 0;
+    if (childAllowanceEnabled) {
+      childrenData.forEach((c, idx) => {
+        const cAge = age - c.birthAge;
+        if (cAge >= 0 && cAge <= 18) {
+          allowanceYear += getChildAllowance(cAge, idx);
+        }
+      });
+    }
+
+    customEvents.filter(e => e.age === age && e.type === 'income').forEach(e => {
+      lumpSumIncome += e.amount;
+      eventsList.push(`${e.name} (+${e.amount}万)`);
+    });
+
+    const totalIncome = incomeSelfYear + incomeSpouseYear + pensionYear + allowanceYear + lumpSumIncome;
+
+    // --- 2. EXPENSE ---
+    let baseLiving = livingMonthly * 12;
+    if (isMarried) baseLiving *= marriedRatio;
+    if (age >= selfRetireAge) baseLiving *= livingRetireRatio;
+    const livingExpenseYear = baseLiving * inflationFactor;
+
+    let housingExpenseYear = 0;
+    if (housingType === 'rent') {
+      housingExpenseYear = (rentMonthly * 12 + rentUpdateAnnual) * inflationFactor;
+    } else {
+      if (age < buyAge) {
+        housingExpenseYear = (rentMonthly * 12 + rentUpdateAnnual) * inflationFactor;
+      } else if (age === buyAge) {
+        housingExpenseYear = buyDownPayment + (buyMaintenanceAnnual * inflationFactor);
+        if (buyLoanYears > 0) housingExpenseYear += annualMortgage;
+        eventsList.push(`住宅購入 (自己資金 ${buyDownPayment}万)`);
+      } else {
+        const loanYearIndex = age - buyAge;
+        if (loanYearIndex < buyLoanYears) {
+          housingExpenseYear = annualMortgage + (buyMaintenanceAnnual * inflationFactor);
+        } else {
+          housingExpenseYear = buyMaintenanceAnnual * inflationFactor;
+          if (loanYearIndex === buyLoanYears) {
+            eventsList.push("住宅ローン完済！");
+          }
+        }
+      }
+    }
+
+    let educationExpenseYear = 0;
+    childrenData.forEach((c, idx) => {
+      const cAge = age - c.birthAge;
+      if (cAge === 0) eventsList.push(`第${idx+1}子誕生`);
+      if (cAge === 6) eventsList.push(`第${idx+1}子 小学校入学`);
+      if (cAge === 12) eventsList.push(`第${idx+1}子 中学校入学`);
+      if (cAge === 15) eventsList.push(`第${idx+1}子 高校入学`);
+      if (cAge === 18) eventsList.push(`第${idx+1}子 大学進学`);
+      if (cAge === 22) eventsList.push(`第${idx+1}子 卒業・就職`);
+
+      const cost = getChildEducationCost(c, cAge);
+      educationExpenseYear += cost * inflationFactor;
+    });
+
+    let carExpenseYear = 0;
+    if (carEnabled && age >= carFirstAge && age <= carEndAge) {
+      carExpenseYear += carMaintenance * inflationFactor;
+      const yearsSinceFirst = age - carFirstAge;
+      if (yearsSinceFirst % carCycle === 0) {
+        carExpenseYear += carPrice;
+        eventsList.push(age === carFirstAge ? `マイカー購入 (${carPrice}万)` : `マイカー買替 (${carPrice}万)`);
+      }
+    }
+
+    let specialExpenseYear = 0;
+    if (spouseEnabled && age === marriageAge) {
+      specialExpenseYear += marriageCost;
+      eventsList.push(`結婚・挙式 (${marriageCost}万)`);
+    }
+
+    customEvents.filter(e => e.age === age && e.type === 'expense').forEach(e => {
+      specialExpenseYear += e.amount;
+      eventsList.push(`${e.name} (-${e.amount}万)`);
+    });
+
+    // Employee Stock Plan: Self contribution deducted from cashflow
+    let selfStockYear = 0;
+    let companyStockSubsidyYear = 0;
+    if (stockPlanEnabled && age <= stockEndAge && age < selfRetireAge) {
+      selfStockYear = stockMonthly * 12;
+      companyStockSubsidyYear = selfStockYear * (stockSubsidyRate / 100);
+    }
+
+    const totalExpense = livingExpenseYear + housingExpenseYear + educationExpenseYear + carExpenseYear + specialExpenseYear + selfStockYear;
+    const netCashflow = totalIncome - totalExpense;
+
+    // --- 3. COMPOUNDING & ASSET ALLOCATION ---
+    const cashGain = simCash > 0 ? (simCash * cashInterestRate) : 0;
+    const nisaGain = simNisa > 0 ? (simNisa * nisaReturnRate) : 0;
+    const taxableGain = simTaxable > 0 ? (simTaxable * taxableReturnRate) : 0;
+    const stockGain = simStock > 0 ? (simStock * stockReturnRate) : 0;
+    const assetReturnYear = cashGain + nisaGain + taxableGain + stockGain;
+
+    if (simCash > 0) simCash += cashGain;
+    if (simNisa > 0) simNisa += nisaGain; // 完全非課税
+    if (simTaxable > 0) simTaxable += taxableGain;
+    if (simStock > 0) simStock += stockGain;
+
+    // Add stock contribution (self + subsidy)
+    if (selfStockYear > 0) {
+      simStock += selfStockYear + companyStockSubsidyYear;
+      stockBook += selfStockYear + companyStockSubsidyYear;
+    }
+
+    // Retirement action for employee stock
+    if (stockPlanEnabled && age === selfRetireAge && stockRetireAction === 'sell_all' && simStock > 0) {
+      const stockGain = Math.max(0, simStock - stockBook);
+      const stockTax = stockGain * TAX_RATE;
+      const netStockProceeds = simStock - stockTax;
+      simCash += netStockProceeds;
+      eventsList.push(`持株会売却 (+${Math.round(netStockProceeds)}万 [税金${Math.round(stockTax)}万控除後])`);
+      simStock = 0;
+      stockBook = 0;
+    }
+
+    // Spot investments this year
+    let currentYearNisaInvested = 0;
+    const spotsThisYear = spotInvestments.filter(s => s.age === age);
+    spotsThisYear.forEach(s => {
+      const spotAmount = s.amount;
+      if (spotAmount > 0) {
+        if (s.account === 'nisa_preferred') {
+          const nisaYearRoom = Math.max(0, NISA_YEARLY_LIMIT - currentYearNisaInvested);
+          const nisaLifeRoom = Math.max(0, NISA_LIFETIME_LIMIT - nisaBook);
+          const allowedNisa = Math.min(spotAmount, nisaYearRoom, nisaLifeRoom);
+          const toTaxable = spotAmount - allowedNisa;
+
+          if (allowedNisa > 0) {
+            simNisa += allowedNisa;
+            nisaBook += allowedNisa;
+            currentYearNisaInvested += allowedNisa;
+          }
+          if (toTaxable > 0) {
+            simTaxable += toTaxable;
+            taxableBook += toTaxable;
+          }
+          eventsList.push(`スポット投資 ${spotAmount}万 (NISA ${Math.round(allowedNisa)}万 / 特定 ${Math.round(toTaxable)}万)`);
+        } else {
+          simTaxable += spotAmount;
+          taxableBook += spotAmount;
+          eventsList.push(`特定口座スポット投資 ${spotAmount}万`);
+        }
+        simCash -= spotAmount;
+      }
+    });
+
+    // Planned Monthly Investments
+    const plannedNisa = (age >= nisaStartAge && age <= nisaEndAge) ? (nisaMonthly * 12) : 0;
+    const plannedTaxable = (age >= taxableStartAge && age <= taxableEndAge) ? (taxableMonthly * 12) : 0;
+
+    if (netCashflow >= 0) {
+      let cashToInvest = netCashflow;
+
+      // 1. NISA allocation
+      const nisaYearRoom = Math.max(0, NISA_YEARLY_LIMIT - currentYearNisaInvested);
+      const nisaLifeRoom = Math.max(0, NISA_LIFETIME_LIMIT - nisaBook);
+      const maxNisa = Math.min(plannedNisa, nisaYearRoom, nisaLifeRoom);
+      const actualNisa = Math.min(cashToInvest, maxNisa);
+
+      simNisa += actualNisa;
+      nisaBook += actualNisa;
+      currentYearNisaInvested += actualNisa;
+      cashToInvest -= actualNisa;
+
+      const nisaOverflow = plannedNisa - actualNisa;
+
+      // 2. Taxable allocation
+      let targetTaxable = plannedTaxable;
+      if (nisaOverflowToTaxable && nisaOverflow > 0) {
+        targetTaxable += nisaOverflow;
+      }
+      const actualTaxable = Math.min(cashToInvest, targetTaxable);
+      simTaxable += actualTaxable;
+      taxableBook += actualTaxable;
+      cashToInvest -= actualTaxable;
+
+      // 3. Remainder stays in cash
+      simCash += cashToInvest;
+    } else {
+      // Net Cashflow < 0: Drawdown
+      let deficit = Math.abs(netCashflow);
+
+      const drawCash = (needed) => {
+        if (deficit <= 0 || simCash <= 0) return;
+        const take = Math.min(simCash, needed);
+        simCash -= take;
+        deficit -= take;
+      };
+
+      const drawTaxable = (needed) => {
+        if (deficit <= 0 || simTaxable <= 0) return;
+        const gainRatio = simTaxable > taxableBook ? (simTaxable - taxableBook) / simTaxable : 0;
+        const netRate = Math.max(0.01, 1 - (gainRatio * TAX_RATE));
+        const grossNeeded = needed / netRate;
+        const actualGross = Math.min(simTaxable, grossNeeded);
+        const tax = actualGross * gainRatio * TAX_RATE;
+        const netReceived = actualGross - tax;
+
+        simTaxable -= actualGross;
+        taxableBook = Math.max(0, taxableBook - (actualGross * (1 - gainRatio)));
+        deficit -= netReceived;
+      };
+
+      const drawNisa = (needed) => {
+        if (deficit <= 0 || simNisa <= 0) return;
+        const actualDraw = Math.min(simNisa, needed);
+        const bookRatio = simNisa > 0 ? (nisaBook / simNisa) : 1;
+        const bookReduced = actualDraw * bookRatio;
+        nisaBook = Math.max(0, nisaBook - bookReduced);
+        simNisa -= actualDraw;
+        deficit -= actualDraw;
+      };
+
+      if (drawdownOrder === 'cash_first') {
+        drawCash(deficit);
+        if (deficit > 0) drawTaxable(deficit);
+        if (deficit > 0) drawNisa(deficit);
+      } else if (drawdownOrder === 'taxable_first') {
+        drawTaxable(deficit);
+        if (deficit > 0) drawCash(deficit);
+        if (deficit > 0) drawNisa(deficit);
+      } else if (drawdownOrder === 'nisa_first') {
+        drawNisa(deficit);
+        if (deficit > 0) drawTaxable(deficit);
+        if (deficit > 0) drawCash(deficit);
+      } else { // proportional
+        const totalAvail = Math.max(0, simCash) + Math.max(0, simTaxable) + Math.max(0, simNisa);
+        if (totalAvail > 0 && deficit <= totalAvail) {
+          const cashPortion = deficit * (Math.max(0, simCash) / totalAvail);
+          const taxablePortion = deficit * (Math.max(0, simTaxable) / totalAvail);
+          const nisaPortion = deficit * (Math.max(0, simNisa) / totalAvail);
+          drawCash(cashPortion);
+          drawTaxable(taxablePortion);
+          drawNisa(nisaPortion);
+          if (deficit > 0) {
+            drawCash(deficit);
+            drawTaxable(deficit);
+            drawNisa(deficit);
+          }
+        } else {
+          drawCash(deficit);
+          drawTaxable(deficit);
+          drawNisa(deficit);
+        }
+      }
+
+      if (deficit > 0) {
+        simCash -= deficit;
+      }
+    }
+
+    // --- 4. CASH CAP & AUTO INVESTMENT SWEEP ---
+    if (cashCapEnabled && simCash > cashCapAmount) {
+      let excessCash = simCash - cashCapAmount;
+      simCash = cashCapAmount;
+
+      if (cashCapTarget === 'nisa_first') {
+        const nisaYearRoom = Math.max(0, NISA_YEARLY_LIMIT - currentYearNisaInvested);
+        const nisaLifeRoom = Math.max(0, NISA_LIFETIME_LIMIT - nisaBook);
+        const sweepNisa = Math.min(excessCash, nisaYearRoom, nisaLifeRoom);
+
+        if (sweepNisa > 0) {
+          simNisa += sweepNisa;
+          nisaBook += sweepNisa;
+          currentYearNisaInvested += sweepNisa;
+          excessCash -= sweepNisa;
+        }
+        if (excessCash > 0) {
+          simTaxable += excessCash;
+          taxableBook += excessCash;
+          excessCash = 0;
+        }
+      } else {
+        // taxable_only
+        simTaxable += excessCash;
+        taxableBook += excessCash;
+        excessCash = 0;
+      }
+    }
+
+    const totalAssets = simCash + simNisa + simTaxable + simStock;
+
+    if (totalAssets > peakAssets) {
+      peakAssets = totalAssets;
+      peakAge = age;
+    }
+    if (age === selfRetireAge) {
+      retireAssets = totalAssets;
+    }
+    if (totalAssets < 0 && bankruptcyAge === null) {
+      bankruptcyAge = age;
+    }
+
+    simulationResults.push({
+      age,
+      year,
+      events: eventsList.join(' / '),
+      incomeSelf: Math.round(incomeSelfYear),
+      incomeSpouse: Math.round(incomeSpouseYear),
+      incomePension: Math.round(pensionYear + allowanceYear + lumpSumIncome),
+      totalIncome: Math.round(totalIncome),
+      expenseLiving: Math.round(livingExpenseYear),
+      expenseHousing: Math.round(housingExpenseYear),
+      expenseEducation: Math.round(educationExpenseYear),
+      expenseSpecial: Math.round(carExpenseYear + specialExpenseYear + selfStockYear),
+      totalExpense: Math.round(totalExpense),
+      netCashflow: Math.round(netCashflow),
+      assetReturn: Math.round(assetReturnYear),
+      cashBalance: Math.round(simCash),
+      nisaBalance: Math.round(simNisa),
+      taxableBalance: Math.round(simTaxable),
+      stockBalance: Math.round(simStock),
+      investBalance: Math.round(simNisa + simTaxable + simStock),
+      totalAssets: Math.round(totalAssets)
+    });
+  }
+
+  updateKPICards(peakAssets, peakAge, retireAssets, selfRetireAge, bankruptcyAge, endAge);
+  renderCharts();
+  renderTable();
+  if (shouldAutoSave) {
+    debouncedSaveToLocalStorage();
+  }
+}
+
+function updateKPICards(peakAssets, peakAge, retireAssets, retireAge, bankruptcyAge, endAge) {
+  const finalResult = simulationResults[simulationResults.length - 1];
+  const finalAssets = finalResult ? finalResult.totalAssets : 0;
+  const inflationRate = (parseFloat(document.getElementById('inflation_rate').value) || 0) / 100;
+  const baseAge = parseInt(document.getElementById('base_age').value, 10) || 28;
+
+  const finalYears = Math.max(0, endAge - baseAge);
+  const finalEl = document.getElementById('kpi-final-assets');
+  finalEl.textContent = `${finalAssets.toLocaleString()} 万円`;
+  finalEl.style.color = finalAssets >= 0 ? '#0f172a' : '#dc2626';
+  document.getElementById('kpi-final-age').textContent = `${endAge}歳時点`;
+  const finalSubEl = document.getElementById('kpi-final-sub');
+  if (finalSubEl) {
+    if (inflationRate > 0 && finalYears > 0 && finalAssets > 0) {
+      const finalPV = finalAssets / Math.pow(1 + inflationRate, finalYears);
+      finalSubEl.innerHTML = `現在価値: <strong>約 ${Math.round(finalPV).toLocaleString()} 万円</strong>`;
+    } else {
+      finalSubEl.textContent = 'シミュレーション終了時';
+    }
+  }
+
+  // Peak Assets and Present Value calculation
+  const peakYears = Math.max(0, peakAge - baseAge);
+  const peakPV = peakAssets > 0 ? (peakAssets / Math.pow(1 + inflationRate, peakYears)) : peakAssets;
+
+  document.getElementById('kpi-peak-assets').textContent = `${Math.round(peakAssets).toLocaleString()} 万円`;
+  document.getElementById('kpi-peak-age').textContent = `${peakAge}歳到達時`;
+  const peakSubEl = document.getElementById('kpi-peak-sub');
+  if (peakSubEl) {
+    if (inflationRate > 0 && peakYears > 0) {
+      peakSubEl.innerHTML = `現在価値: <strong>約 ${Math.round(peakPV).toLocaleString()} 万円</strong> <span style="font-size:0.72rem; color:var(--text-muted);">(インフレ ${(inflationRate * 100).toFixed(1)}%/年)</span>`;
+    } else {
+      peakSubEl.innerHTML = `生涯で最大の蓄積額 <span style="font-size:0.72rem; color:var(--text-muted);">(現在価値同額)</span>`;
+    }
+  }
+
+  // Retire Assets and Present Value calculation
+  const retireYears = Math.max(0, retireAge - baseAge);
+  const retirePV = retireAssets > 0 ? (retireAssets / Math.pow(1 + inflationRate, retireYears)) : retireAssets;
+  document.getElementById('kpi-retire-assets').textContent = `${Math.round(retireAssets).toLocaleString()} 万円`;
+  document.getElementById('kpi-retire-age').textContent = `${retireAge}歳時点`;
+  const retireSubEl = document.getElementById('kpi-retire-sub');
+  if (retireSubEl) {
+    if (inflationRate > 0 && retireYears > 0 && retireAssets > 0) {
+      retireSubEl.innerHTML = `現在価値: <strong>約 ${Math.round(retirePV).toLocaleString()} 万円</strong>`;
+    } else {
+      retireSubEl.textContent = '退職金加算後の保有金融資産';
+    }
+  }
+
+  const statusEl = document.getElementById('kpi-status');
+  const statusSubEl = document.getElementById('kpi-status-sub');
+  const statusBadge = document.getElementById('kpi-status-badge');
+  const statusCard = document.getElementById('kpi-status-card');
+  const alertContainer = document.getElementById('alert-container');
+
+  if (bankruptcyAge !== null) {
+    statusCard.className = 'kpi-card danger';
+    statusEl.textContent = `注意`;
+    statusEl.style.color = '#dc2626';
+    statusBadge.textContent = '要改善';
+    statusBadge.style.background = '#fee2e2';
+    statusBadge.style.color = '#dc2626';
+    statusSubEl.textContent = `${bankruptcyAge}歳で資産枯渇`;
+
+    alertContainer.innerHTML = `
+      <div class="alert-banner alert-danger">
+        ⚠️ <strong>資金ショート警告:</strong> ${bankruptcyAge}歳時点で資産残高がマイナスに転じます。生活費の抑制、住居・教育費の最適化、または投資運用利回りや退職後就労期間の見直しを推奨します。
+      </div>
+    `;
+  } else {
+    statusCard.className = 'kpi-card success';
+    statusEl.textContent = `健全`;
+    statusEl.style.color = '#16a34a';
+    statusBadge.textContent = '安全水準';
+    statusBadge.style.background = '#dcfce7';
+    statusBadge.style.color = '#15803d';
+    statusSubEl.textContent = `${endAge}歳まで資産維持可能`;
+
+    alertContainer.innerHTML = `
+      <div class="alert-banner alert-success">
+        ✅ <strong>生涯黒字維持プラン:</strong> シミュレーション期間中、資産が底をつくことなく老後まで安定した純資産を維持できています。
+      </div>
+    `;
+  }
+}
+
+function renderCharts() {
+  if (typeof Chart === 'undefined') {
+    renderFallbackSVGCharts();
+    return;
+  }
+
+  const labels = simulationResults.map(r => `${r.age}歳`);
+  const inflationRate = (parseFloat(document.getElementById('inflation_rate').value) || 0) / 100;
+  const baseAge = parseInt(document.getElementById('base_age').value, 10) || 28;
+
+  // Assets Chart
+  const ctxAssets = document.getElementById('assetsChart').getContext('2d');
+  const totalAssetsData = simulationResults.map(r => r.totalAssets);
+  const nisaData = simulationResults.map(r => r.nisaBalance);
+  const taxableData = simulationResults.map(r => r.taxableBalance);
+  const stockData = simulationResults.map(r => r.stockBalance);
+  const cashData = simulationResults.map(r => r.cashBalance);
+
+  if (assetsChartInstance) assetsChartInstance.destroy();
+
+  assetsChartInstance = new Chart(ctxAssets, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: '純資産合計',
+          data: totalAssetsData,
+          borderColor: '#2563eb',
+          backgroundColor: 'rgba(37, 99, 235, 0.08)',
+          borderWidth: 3.5,
+          fill: false,
+          tension: 0.25,
+          pointRadius: 1
+        },
+        {
+          label: 'NISA資産 (非課税)',
+          data: nisaData,
+          borderColor: '#10b981',
+          borderWidth: 2,
+          fill: false,
+          tension: 0.25,
+          pointRadius: 0
+        },
+        {
+          label: '特定口座 (課税運用)',
+          data: taxableData,
+          borderColor: '#06b6d4',
+          borderWidth: 2,
+          fill: false,
+          tension: 0.25,
+          pointRadius: 0
+        },
+        {
+          label: '自社株持株会',
+          data: stockData,
+          borderColor: '#8b5cf6',
+          borderWidth: 2,
+          fill: false,
+          tension: 0.25,
+          pointRadius: 0
+        },
+        {
+          label: '現預金残高',
+          data: cashData,
+          borderColor: '#64748b',
+          borderWidth: 2,
+          fill: false,
+          tension: 0.25,
+          pointRadius: 0
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'top', labels: { boxWidth: 14, font: { size: 12, weight: 'bold' } } },
+        tooltip: {
+          callbacks: {
+            label: function(c) {
+              const val = c.raw;
+              if (c.dataset.label === '純資産合計') {
+                const r = simulationResults[c.dataIndex];
+                if (r) {
+                  const years = Math.max(0, r.age - baseAge);
+                  if (inflationRate > 0 && years > 0 && val > 0) {
+                    const pv = Math.round(val / Math.pow(1 + inflationRate, years));
+                    return `${c.dataset.label}: ${val.toLocaleString()} 万円 (現在価値: 約 ${pv.toLocaleString()} 万円)`;
+                  }
+                }
+              }
+              return `${c.dataset.label}: ${val.toLocaleString()} 万円`;
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          title: { display: true, text: '金額 (万円)', font: { weight: 'bold' } },
+          grid: { color: '#f1f5f9' }
+        },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+
+  // Cashflow Chart
+  const ctxCashflow = document.getElementById('cashflowChart').getContext('2d');
+  const incomeData = simulationResults.map(r => r.totalIncome);
+  const expenseData = simulationResults.map(r => r.totalExpense);
+  const netData = simulationResults.map(r => r.netCashflow);
+
+  if (cashflowChartInstance) cashflowChartInstance.destroy();
+
+  cashflowChartInstance = new Chart(ctxCashflow, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          type: 'line',
+          label: '年間収支差額 (黒字/赤字)',
+          data: netData,
+          borderColor: '#f59e0b',
+          backgroundColor: '#f59e0b',
+          borderWidth: 2.5,
+          tension: 0.2,
+          pointRadius: 1
+        },
+        {
+          type: 'bar',
+          label: '年間総収入',
+          data: incomeData,
+          backgroundColor: 'rgba(37, 99, 235, 0.8)',
+          borderRadius: 4
+        },
+        {
+          type: 'bar',
+          label: '年間総支出',
+          data: expenseData,
+          backgroundColor: 'rgba(239, 68, 68, 0.8)',
+          borderRadius: 4
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'top', labels: { boxWidth: 14, font: { size: 12, weight: 'bold' } } },
+        tooltip: {
+          callbacks: {
+            label: function(c) {
+              return `${c.dataset.label}: ${c.raw.toLocaleString()} 万円`;
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          title: { display: true, text: '金額 (万円)', font: { weight: 'bold' } },
+          grid: { color: '#f1f5f9' }
+        },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+}
+
+function renderFallbackSVGCharts() {
+  document.getElementById('assetsChartContainer').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);">グラフ描画ライブラリをロード中...（オフライン環境の場合は下部の詳細テーブルをご参照ください）</div>';
+  document.getElementById('cashflowChartContainer').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);">グラフ描画ライブラリをロード中...（オフライン環境の場合は下部の詳細テーブルをご参照ください）</div>';
+}
+
+function renderTable() {
+  const filterMode = document.getElementById('table_interval').value;
+  const tbody = document.getElementById('table_body');
+  tbody.innerHTML = '';
+
+  simulationResults.forEach(r => {
+    let show = false;
+    if (filterMode === '1') show = true;
+    else if (filterMode === '5') {
+      if (r.age % 5 === 0 || r.age === simulationResults[0].age || r.age === simulationResults[simulationResults.length - 1].age || r.events) {
+        show = true;
+      }
+    } else if (filterMode === 'events') {
+      if (r.events || r.netCashflow < 0 || r.totalAssets < 0) show = true;
+    }
+
+    if (!show) return;
+
+    const tr = document.createElement('tr');
+    if (r.totalAssets < 0) tr.className = 'bankruptcy';
+    else if (r.netCashflow < 0) tr.className = 'deficit';
+
+    const eventBadges = r.events ? r.events.split(' / ').map(e => `<span class="badge badge-event">${e}</span>`).join('') : '-';
+
+    tr.innerHTML = `
+      <td class="text-center" style="font-weight:700;">${r.age}</td>
+      <td class="text-center" style="color:var(--text-muted);">${r.year}</td>
+      <td class="text-left">${eventBadges}</td>
+      <td>${r.incomeSelf > 0 ? r.incomeSelf.toLocaleString() : '-'}</td>
+      <td>${r.incomeSpouse > 0 ? r.incomeSpouse.toLocaleString() : '-'}</td>
+      <td>${r.incomePension > 0 ? r.incomePension.toLocaleString() : '-'}</td>
+      <td style="font-weight:700; color:#1e3a8a;">${r.totalIncome.toLocaleString()}</td>
+      <td>${r.expenseLiving.toLocaleString()}</td>
+      <td>${r.expenseHousing > 0 ? r.expenseHousing.toLocaleString() : '-'}</td>
+      <td>${r.expenseEducation > 0 ? r.expenseEducation.toLocaleString() : '-'}</td>
+      <td>${r.expenseSpecial > 0 ? r.expenseSpecial.toLocaleString() : '-'}</td>
+      <td style="font-weight:700; color:#991b1b;">${r.totalExpense.toLocaleString()}</td>
+      <td style="font-weight:800; color:${r.netCashflow >= 0 ? '#16a34a' : '#dc2626'};">${r.netCashflow >= 0 ? '+' : ''}${r.netCashflow.toLocaleString()}</td>
+      <td style="font-weight:700; color:#0284c7;">${r.assetReturn > 0 ? '+' + r.assetReturn.toLocaleString() : (r.assetReturn < 0 ? r.assetReturn.toLocaleString() : '-')}</td>
+      <td>${r.cashBalance.toLocaleString()}</td>
+      <td>${r.nisaBalance.toLocaleString()}</td>
+      <td>${r.taxableBalance.toLocaleString()}</td>
+      <td>${r.stockBalance.toLocaleString()}</td>
+      <td style="font-weight:800; color:${r.totalAssets >= 0 ? '#0f172a' : '#dc2626'};">${r.totalAssets.toLocaleString()}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function exportToCSV() {
+  let csv = "\uFEFF年齢,西暦,主なライフイベント,本人給与(万円),配偶者給与(万円),年金・退職金・臨時収入(万円),総収入(万円),基本生活費(万円),住居費(万円),教育費(万円),車両費・特別支出(万円),総支出(万円),年間収支(万円),資産収益額(万円),現預金残高(万円),NISA残高(万円),特定口座残高(万円),自社株残高(万円),純資産合計(万円)\n";
+  simulationResults.forEach(r => {
+    const row = [
+      r.age,
+      r.year,
+      `"${(r.events || '').replace(/"/g, '""')}"`,
+      r.incomeSelf,
+      r.incomeSpouse,
+      r.incomePension,
+      r.totalIncome,
+      r.expenseLiving,
+      r.expenseHousing,
+      r.expenseEducation,
+      r.expenseSpecial,
+      r.totalExpense,
+      r.netCashflow,
+      r.assetReturn,
+      r.cashBalance,
+      r.nisaBalance,
+      r.taxableBalance,
+      r.stockBalance,
+      r.totalAssets
+    ];
+    csv += row.join(',') + "\n";
+  });
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `life_plan_simulation_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// Initial setup
+window.addEventListener('DOMContentLoaded', () => {
+  const loaded = loadFromLocalStorage();
+  if (!loaded) {
+    renderChildInputs();
+    renderCustomEvents();
+    renderSpotInvestments();
+    toggleIncomeCalcMode();
+    toggleSpouseIncomeCalcMode();
+    toggleSelfRehire();
+    toggleHousingFields();
+    toggleCarFields();
+    toggleSpouseFields();
+    toggleStockPlanFields();
+    toggleCashCapFields();
+    calculate();
+  }
+
+  // Track manual changes to mark as customized
+  const inputsPanel = document.querySelector('.inputs-panel');
+  if (inputsPanel) {
+    inputsPanel.addEventListener('input', markAsCustomized);
+    inputsPanel.addEventListener('change', markAsCustomized);
+  }
+});
+
+// Cross-tab synchronization
+window.addEventListener('storage', (e) => {
+  if (e.key === STORAGE_KEY && e.newValue) {
+    loadFromLocalStorage();
+  }
+});
+</script>
+
+</body>
+</html>
