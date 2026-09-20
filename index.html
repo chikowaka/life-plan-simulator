@@ -1064,6 +1064,40 @@
             </select>
             <p class="help-text">入居年（購入年）から13年間、年末残高（限度額内）の0.7%が所得税・住民税から直接減税されます。</p>
           </div>
+
+          <div style="margin-top:16px; padding-top:12px; border-top:1px dashed var(--border);">
+            <div style="font-size:0.86rem; font-weight:700; color:#0f172a; margin-bottom:8px;">🏠 住宅売却査定・リセールバリュー設定 (東京近辺実勢モデル)</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>物件種別・減価推移モデル</label>
+                <select id="housing_valuation_model" onchange="toggleHousingValuationFields(); calculate();">
+                  <option value="tokyo_mansion" selected>東京圏マンション標準（築10年約83%・20年約66%・30年以降約48%維持・推奨）</option>
+                  <option value="tokyo_house">東京圏一戸建て標準（建物22年償却＋土地値50%維持・築25年以降約52%）</option>
+                  <option value="conservative">定率下落モデル（年2.5%下落・保守的想定）</option>
+                  <option value="custom">カスタム年間下落率（%指定）</option>
+                </select>
+                <p class="help-text">東日本不動産流通機構（レインズ）・東京カンテイの中古成約統計準拠</p>
+              </div>
+              <div class="form-group" id="housing_custom_rate_group" style="display:none;">
+                <label>カスタム年間下落率</label>
+                <div class="input-wrapper">
+                  <input type="number" id="housing_custom_depreciation_rate" value="2.0" min="0" max="10" step="0.1" oninput="calculate()">
+                  <span class="unit-suffix">%/年</span>
+                </div>
+                <p class="help-text">購入価格から毎年定率で下落（下限40%）</p>
+              </div>
+            </div>
+
+            <div class="checkbox-card" style="margin-top:4px;">
+              <input type="checkbox" id="housing_valuation_inflation_linked" checked onchange="calculate();">
+              <label for="housing_valuation_inflation_linked">インフレ率を住宅評価額に連動させる（名目売却査定額）</label>
+            </div>
+
+            <div style="background:#fff; border:1px solid #cbd5e1; border-left:4px solid #059669; border-radius:8px; padding:10px 14px; margin-top:10px;">
+              <div style="font-size:0.82rem; font-weight:700; color:#059669; margin-bottom:4px;">📊 住宅資産価値＆ローン残債推移プレビュー</div>
+              <div id="housing_equity_preview" style="font-size:0.78rem; color:var(--text-main); line-height:1.5;"></div>
+            </div>
+          </div>
         </div>
 
         <div class="section-title">マイカー・車両費</div>
@@ -1580,6 +1614,9 @@
                 <th>特定口座</th>
                 <th>自社株残高</th>
                 <th>純資産合計</th>
+                <th style="color:#dc2626;">ローン残債</th>
+                <th style="color:#059669;">住宅評価額</th>
+                <th style="color:#2563eb;">純住宅資産</th>
               </tr>
             </thead>
             <tbody id="table_body"></tbody>
@@ -1614,6 +1651,7 @@ const INPUT_IDS = [
   'housing_type', 'rent_monthly', 'rent_update_annual',
   'buy_age', 'buy_price', 'buy_down_payment', 'buy_loan_amount', 'buy_loan_rate', 'buy_loan_years', 'buy_loan_bonus_ratio', 'buy_maintenance_annual',
   'mortgage_deduction_enabled', 'mortgage_deduction_limit',
+  'housing_valuation_model', 'housing_custom_depreciation_rate', 'housing_valuation_inflation_linked',
   'car_enabled', 'car_first_age', 'car_cycle', 'car_price', 'car_maintenance_annual', 'car_end_age',
   'spouse_enabled', 'marriage_age', 'marriage_cost', 'spouse_income_calc_mode', 'spouse_gross_income', 'spouse_age', 'spouse_income', 'spouse_bonus_ratio', 'spouse_raise', 'spouse_retire_age', 'spouse_retire_bonus', 'spouse_pension_annual',
   'child_count', 'child_allowance_enabled',
@@ -1870,6 +1908,20 @@ function loadFromLocalStorage() {
         const el = document.getElementById('mortgage_deduction_limit');
         if (el) el.value = '4000';
       }
+
+      // Backward compatibility: housing valuation
+      if (data.inputs && !('housing_valuation_model' in data.inputs)) {
+        const el = document.getElementById('housing_valuation_model');
+        if (el) el.value = 'tokyo_mansion';
+      }
+      if (data.inputs && !('housing_custom_depreciation_rate' in data.inputs)) {
+        const el = document.getElementById('housing_custom_depreciation_rate');
+        if (el) el.value = 2.0;
+      }
+      if (data.inputs && !('housing_valuation_inflation_linked' in data.inputs)) {
+        const el = document.getElementById('housing_valuation_inflation_linked');
+        if (el) el.checked = true;
+      }
     }
 
     // Restore children
@@ -1907,6 +1959,7 @@ function loadFromLocalStorage() {
     toggleSpouseIncomeCalcMode();
     toggleSelfRehire();
     toggleHousingFields();
+    toggleHousingValuationFields();
     toggleCarFields();
     toggleSpouseFields();
     toggleStockPlanFields();
@@ -1972,6 +2025,9 @@ const presets = {
     deduction_life_insurance: 0,
     mortgage_deduction_enabled: true,
     mortgage_deduction_limit: '4000',
+    housing_valuation_model: 'tokyo_mansion',
+    housing_custom_depreciation_rate: 2.0,
+    housing_valuation_inflation_linked: true,
     inflation_rate: 1.0,
     expense_living_monthly: 16,
     expense_living_retire_ratio: 75,
@@ -2048,6 +2104,9 @@ const presets = {
     deduction_life_insurance: 10,
     mortgage_deduction_enabled: true,
     mortgage_deduction_limit: '4000',
+    housing_valuation_model: 'tokyo_mansion',
+    housing_custom_depreciation_rate: 2.0,
+    housing_valuation_inflation_linked: true,
     inflation_rate: 1.2,
     expense_living_monthly: 24,
     expense_living_retire_ratio: 75,
@@ -2137,6 +2196,9 @@ const presets = {
     deduction_life_insurance: 12,
     mortgage_deduction_enabled: true,
     mortgage_deduction_limit: '4000',
+    housing_valuation_model: 'tokyo_house',
+    housing_custom_depreciation_rate: 2.0,
+    housing_valuation_inflation_linked: true,
     inflation_rate: 1.0,
     expense_living_monthly: 20,
     expense_living_retire_ratio: 75,
@@ -2257,6 +2319,7 @@ function toggleHousingFields() {
     rentTitle.textContent = "購入前の家賃月額";
     document.getElementById('housing_buy_fields').style.display = 'block';
     toggleMortgageDeductionFields();
+    toggleHousingValuationFields();
   }
 }
 
@@ -2265,6 +2328,15 @@ function toggleMortgageDeductionFields() {
   const enabled = el ? el.checked : true;
   const fields = document.getElementById('mortgage_deduction_fields');
   if (fields) fields.style.display = enabled ? 'block' : 'none';
+}
+
+function toggleHousingValuationFields() {
+  const modelEl = document.getElementById('housing_valuation_model');
+  const model = modelEl ? modelEl.value : 'tokyo_mansion';
+  const customGroup = document.getElementById('housing_custom_rate_group');
+  if (customGroup) {
+    customGroup.style.display = (model === 'custom') ? 'block' : 'none';
+  }
 }
 
 function syncLoanAmount() {
@@ -2513,6 +2585,51 @@ function getMortgageRemainingBalance(principal, annualRatePct, years, yearIndex)
   return Math.max(0, remaining);
 }
 
+function getHousingResidualRatio(model, yearsSinceBuy, customRate = 2.0) {
+  const t = Math.max(0, yearsSinceBuy);
+  if (t === 0) return 1.0;
+
+  if (model === 'tokyo_mansion') {
+    // 東日本不動産流通機構（レインズ）・東京カンテイ 首都圏中古マンション実勢価格データ準拠
+    if (t <= 5) {
+      return Math.max(0.45, 1.0 - 0.016 * t);
+    }
+    if (t <= 15) {
+      return Math.max(0.45, 0.92 - 0.018 * (t - 5));
+    }
+    if (t <= 25) {
+      return Math.max(0.45, 0.74 - 0.016 * (t - 15));
+    }
+    if (t <= 35) {
+      return Math.max(0.45, 0.58 - 0.010 * (t - 25));
+    }
+    return 0.45;
+  } else if (model === 'tokyo_house') {
+    // 東京圏一戸建て（木造建物50% + 土地50%）
+    // 建物: 法定耐用年数22年で直線減価、22年超は残存5%
+    const buildingRatio = 0.50;
+    const landRatio = 0.50;
+    const buildingResidual = t <= 22 ? buildingRatio * (1 - (t / 22)) : buildingRatio * 0.05;
+    const landResidual = landRatio;
+    return Math.max(0.40, buildingResidual + landResidual);
+  } else if (model === 'conservative') {
+    return Math.max(0.40, Math.pow(1 - 0.025, t));
+  } else {
+    const r = Math.max(0, Math.min(0.20, (customRate / 100)));
+    return Math.max(0.30, Math.pow(1 - r, t));
+  }
+}
+
+function getHousingValuation(buyPrice, yearsSinceBuy, model, customRate, inflationRate, isInflationLinked) {
+  if (buyPrice <= 0 || yearsSinceBuy < 0) return 0;
+  const ratio = getHousingResidualRatio(model, yearsSinceBuy, customRate);
+  let valuation = buyPrice * ratio;
+  if (isInflationLinked && inflationRate > 0 && yearsSinceBuy > 0) {
+    valuation *= Math.pow(1 + inflationRate, yearsSinceBuy);
+  }
+  return Math.max(0, valuation);
+}
+
 function getSpouseDeduction(selfGrossAnnual, spouseGrossAnnual) {
   if (selfGrossAnnual > 1220) return { it: 0, rt: 0 };
   if (!spouseGrossAnnual || spouseGrossAnnual <= 103) {
@@ -2721,6 +2838,10 @@ function calculate(shouldAutoSave = true) {
   const buyLoanYears = parseInt(document.getElementById('buy_loan_years').value, 10) || 35;
   const buyLoanBonusRatio = parseFloat(document.getElementById('buy_loan_bonus_ratio').value) || 0;
   const buyMaintenanceAnnual = parseFloat(document.getElementById('buy_maintenance_annual').value) || 0;
+  const buyPrice = parseFloat(document.getElementById('buy_price').value) || 0;
+  const housingValuationModel = document.getElementById('housing_valuation_model') ? document.getElementById('housing_valuation_model').value : 'tokyo_mansion';
+  const housingCustomRate = parseFloat(document.getElementById('housing_custom_depreciation_rate') ? document.getElementById('housing_custom_depreciation_rate').value : 2.0) || 2.0;
+  const housingInflationLinked = document.getElementById('housing_valuation_inflation_linked') ? document.getElementById('housing_valuation_inflation_linked').checked : true;
 
   // Spouse inputs
   const spouseEnabled = document.getElementById('spouse_enabled').checked;
@@ -3113,6 +3234,23 @@ function calculate(shouldAutoSave = true) {
           eventsList.push("住宅ローン控除終了");
         }
       }
+    }
+
+    // Housing mortgage remaining balance and property valuation
+    let loanRemainingYear = 0;
+    let housingValuationYear = 0;
+    let netHousingEquityYear = 0;
+    if (housingType === 'buy' && age >= buyAge) {
+      const yearsSinceBuy = age - buyAge;
+      if (buyLoanYears > 0) {
+        if (yearsSinceBuy < buyLoanYears) {
+          loanRemainingYear = Math.round(getMortgageRemainingBalance(buyLoanAmount, buyLoanRate, buyLoanYears, yearsSinceBuy + 1));
+        } else {
+          loanRemainingYear = 0;
+        }
+      }
+      housingValuationYear = Math.round(getHousingValuation(buyPrice, yearsSinceBuy, housingValuationModel, housingCustomRate, inflationRate, housingInflationLinked));
+      netHousingEquityYear = housingValuationYear - loanRemainingYear;
     }
 
     // Deductions for current year
@@ -3537,8 +3675,41 @@ function calculate(shouldAutoSave = true) {
       taxableBalance: Math.round(simTaxable),
       stockBalance: Math.round(simStock),
       investBalance: Math.round(simNisa + simTaxable + simStock),
-      totalAssets: Math.round(totalAssets)
+      totalAssets: Math.round(totalAssets),
+      loanRemaining: loanRemainingYear,
+      housingValuation: housingValuationYear,
+      netHousingEquity: netHousingEquityYear
     });
+  }
+
+  // Housing equity preview in Tab 2
+  const equityPreviewEl = document.getElementById('housing_equity_preview');
+  if (equityPreviewEl) {
+    if (housingType === 'buy' && buyPrice > 0) {
+      const milestones = [5, 10, 15, 20, buyLoanYears].filter((v, i, a) => a.indexOf(v) === i && v > 0);
+      let html = '<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:8px; margin-top:4px;">';
+      milestones.forEach(m => {
+        const val = Math.round(getHousingValuation(buyPrice, m, housingValuationModel, housingCustomRate, inflationRate, housingInflationLinked));
+        const rem = (buyLoanYears > 0 && m < buyLoanYears) ? Math.round(getMortgageRemainingBalance(buyLoanAmount, buyLoanRate, buyLoanYears, m)) : 0;
+        const net = val - rem;
+        const netColor = net >= 0 ? '#16a34a' : '#dc2626';
+        html += `
+          <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:6px 8px; text-align:center;">
+            <div style="font-weight:700; color:#334155; font-size:0.75rem;">築${m}年 (${buyAge + m}歳)</div>
+            <div style="font-size:0.72rem; color:#059669; margin-top:2px;">査定額: <strong>${val.toLocaleString()}</strong>万</div>
+            <div style="font-size:0.72rem; color:#dc2626;">残債: <strong>${rem > 0 ? rem.toLocaleString() + '万' : '完済'}</strong></div>
+            <div style="font-size:0.75rem; font-weight:700; color:${netColor}; margin-top:2px; border-top:1px dashed #cbd5e1; padding-top:2px;">
+              純資産: ${net >= 0 ? '+' : ''}${net.toLocaleString()}万
+            </div>
+          </div>
+        `;
+      });
+      html += '</div>';
+      html += `<div style="font-size:0.7rem; color:#64748b; margin-top:6px;">※ 査定額は東京圏の中古流通統計に基づく売却想定価格（インフレ連動: ${housingInflationLinked ? 'ON' : 'OFF'}）。売却時には別途諸費用（仲介手数料等）が発生します。</div>`;
+      equityPreviewEl.innerHTML = html;
+    } else {
+      equityPreviewEl.innerHTML = '<span style="color:var(--text-muted);">持ち家購入なし（賃貸プラン）</span>';
+    }
   }
 
   updateKPICards(peakAssets, peakAge, retireAssets, selfRetireAge, bankruptcyAge, endAge);
@@ -3815,6 +3986,8 @@ function renderFallbackSVGCharts() {
 
 function renderTable() {
   const filterMode = document.getElementById('table_interval').value;
+  const housingType = document.getElementById('housing_type').value;
+  const buyAge = parseInt(document.getElementById('buy_age').value, 10) || 33;
   const tbody = document.getElementById('table_body');
   tbody.innerHTML = '';
 
@@ -3837,6 +4010,12 @@ function renderTable() {
 
     const eventBadges = r.events ? r.events.split(' / ').map(e => `<span class="badge badge-event">${e}</span>`).join('') : '-';
 
+    const hasMortgage = (housingType === 'buy' && r.age >= buyAge);
+    const loanBalText = hasMortgage ? (r.loanRemaining > 0 ? r.loanRemaining.toLocaleString() : '完済') : '-';
+    const houseValText = hasMortgage ? r.housingValuation.toLocaleString() : '-';
+    const netEquityText = hasMortgage ? ((r.netHousingEquity >= 0 ? '+' : '') + r.netHousingEquity.toLocaleString()) : '-';
+    const netEquityColor = hasMortgage ? (r.netHousingEquity >= 0 ? '#16a34a' : '#dc2626') : 'inherit';
+
     tr.innerHTML = `
       <td class="text-center" style="font-weight:700;">${r.age}</td>
       <td class="text-center" style="color:var(--text-muted);">${r.year}</td>
@@ -3857,13 +4036,16 @@ function renderTable() {
       <td>${r.taxableBalance.toLocaleString()}</td>
       <td>${r.stockBalance.toLocaleString()}</td>
       <td style="font-weight:800; color:${r.totalAssets >= 0 ? '#0f172a' : '#dc2626'};">${r.totalAssets.toLocaleString()}</td>
+      <td style="color:${r.loanRemaining > 0 ? '#dc2626' : '#64748b'}; font-weight:${r.loanRemaining > 0 ? '600' : 'normal'};">${loanBalText}</td>
+      <td style="color:#059669; font-weight:600;">${houseValText}</td>
+      <td style="color:${netEquityColor}; font-weight:700;">${netEquityText}</td>
     `;
     tbody.appendChild(tr);
   });
 }
 
 function exportToCSV() {
-  let csv = "\uFEFF年齢,西暦,主なライフイベント,本人給与(万円),配偶者給与(万円),年金・退職金・臨時収入(万円),総収入(万円),基本生活費(万円),住居費(万円),教育費(万円),車両費・特別支出(万円),総支出(万円),年間収支(万円),資産収益額(万円),現預金残高(万円),NISA残高(万円),特定口座残高(万円),自社株残高(万円),純資産合計(万円)\n";
+  let csv = "\uFEFF年齢,西暦,主なライフイベント,本人給与(万円),配偶者給与(万円),年金・退職金・臨時収入(万円),総収入(万円),基本生活費(万円),住居費(万円),教育費(万円),車両費・特別支出(万円),総支出(万円),年間収支(万円),資産収益額(万円),現預金残高(万円),NISA残高(万円),特定口座残高(万円),自社株残高(万円),純資産合計(万円),住宅ローン残債(万円),住宅売却想定評価額(万円),純住宅資産(万円)\n";
   simulationResults.forEach(r => {
     const row = [
       r.age,
@@ -3884,7 +4066,10 @@ function exportToCSV() {
       r.nisaBalance,
       r.taxableBalance,
       r.stockBalance,
-      r.totalAssets
+      r.totalAssets,
+      r.loanRemaining,
+      r.housingValuation,
+      r.netHousingEquity
     ];
     csv += row.join(',') + "\n";
   });
